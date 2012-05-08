@@ -262,6 +262,11 @@ class ModelSerializer(RelatedField, Serializer):
         model_field_types = ('pk', 'fields', 'many_to_many')
 
     def get_default_field_names(self, obj):
+        """
+        We subclass this method to return the set of all field names defined
+        on the model instance, rather than the default behaviour of returning
+        all non-private attributes on the object.
+        """
         fields = []
         concrete_model = obj._meta.concrete_model
 
@@ -285,6 +290,10 @@ class ModelSerializer(RelatedField, Serializer):
         return self.opts.related_field()
 
     def get_flat_serializer(self, obj, field_name):
+        """
+        We subclass this method to switch between `related_field` and
+        `flat_field` depending on the field type.
+        """
         try:
             field = obj._meta.get_field_by_name(field_name)[0]
             if isinstance(field, RelatedObject) or field.rel:
