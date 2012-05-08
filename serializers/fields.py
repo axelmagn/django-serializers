@@ -65,6 +65,7 @@ class ModelField(Field):
 class RelatedField(Field):
     """
     A base class for model related fields or related managers.
+
     Subclass this and override `serialize` to define custom behaviour when
     serializing related objects.
     """
@@ -88,14 +89,23 @@ class PrimaryKeyRelatedField(RelatedField):
     Serializes a model related field or related manager to a pk value.
     """
 
-    # Note the we don't inherit from ModelRelatedField's implementation,
-    # as we want to get the raw database value directly.
+    # Note the we use ModelRelatedField's implementation, as we want to get the
+    # raw database value directly, since that won't involve another
+    # database lookup.
     #
     # An alternative implementation would simply be this...
     #
     # class PrimaryKeyRelatedField(RelatedField):
     #     def serialize(self, obj):
     #         return obj.pk
+
+    def serialize(self, pk):
+        """
+        Simply returns the object's pk.  You can subclass this method to
+        provide different serialization behavior of the pk.
+        (For example returning a URL based on the model's pk.)
+        """
+        return pk
 
     def serialize_field(self, obj, field_name):
         self.test = field_name
@@ -105,16 +115,19 @@ class PrimaryKeyRelatedField(RelatedField):
             field = obj._meta.get_field_by_name(field_name)[0]
             obj = getattr(obj, field_name)
             if obj.__class__.__name__ == 'RelatedManager':
-                return [item.pk for item in obj.all()]
+                return [self.serialize(item.pk) for item in obj.all()]
             elif isinstance(field, RelatedObject):
-                return obj.pk
+                return self.serialize(obj.pk)
             raise
         if obj.__class__.__name__ == 'ManyRelatedManager':
-            return [item.pk for item in obj.all()]
+            return [self.serialize(item.pk) for item in obj.all()]
         return obj
 
 
 class NaturalKeyRelatedField(RelatedField):
+    """
+    Serializes a model related field or related manager to a natural key value.
+    """
     def serialize(self, obj):
         return obj.natural_key()
 

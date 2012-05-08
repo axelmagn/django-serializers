@@ -251,7 +251,7 @@ class Serializer(BaseSerializer):
     __metaclass__ = SerializerMetaclass
 
 
-class ModelSerializer(Serializer):
+class ModelSerializer(RelatedField, Serializer):
     """
     A serializer that deals with model instances and querysets.
     """
@@ -292,17 +292,6 @@ class ModelSerializer(Serializer):
             return self.opts.model_field()
         except FieldDoesNotExist:
             return self.opts.flat_field()
-
-    def serialize(self, obj):
-        if self._is_protected_type(obj):
-            return obj
-        elif self._is_simple_callable(obj):
-            return self.serialize(obj())
-        elif hasattr(obj, 'all') and self._is_simple_callable(obj.all):
-            return [self.serialize(item) for item in obj.all()]
-        elif hasattr(obj, '__iter__'):
-            return [self.serialize(item) for item in obj]
-        return self.serialize_object(obj)
 
 
 class DumpDataFields(ModelSerializer):
