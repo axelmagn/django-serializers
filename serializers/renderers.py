@@ -45,14 +45,12 @@ class YAMLRenderer(BaseRenderer):
 
 class XMLRenderer(BaseRenderer):
     """
-    Render a native python object into XML.
-    Note that this renderer is included more by way of example,
-    than as a proposed final XML renderer.
+    Render a native python object into a generic XML format.
     """
     def render(self, obj, **opts):
         stream = StringIO.StringIO()
 
-        xml = SimplerXMLGenerator(stream, "utf-8")
+        xml = SimplerXMLGenerator(stream, 'utf-8')
         xml.startDocument()
         self._to_xml(xml, obj)
         xml.endDocument()
@@ -61,17 +59,17 @@ class XMLRenderer(BaseRenderer):
     def _to_xml(self, xml, data):
         if isinstance(data, (list, tuple)):
             for item in data:
-                xml.startElement("item", {})
+                xml.startElement('item', {})
                 self._to_xml(xml, item)
-                xml.endElement("item")
+                xml.endElement('item')
 
         elif isinstance(data, dict):
-            xml.startElement("object", {})
+            xml.startElement('object', {})
             for key, value in data.items():
                 xml.startElement(key, {})
                 self._to_xml(xml, value)
                 xml.endElement(key)
-            xml.endElement("object")
+            xml.endElement('object')
 
         else:
             xml.characters(smart_unicode(data))
@@ -79,21 +77,19 @@ class XMLRenderer(BaseRenderer):
 
 class DumpDataXMLRenderer(BaseRenderer):
     """
-    Render a native python object into XML.
-    Note that this renderer is included more by way of example,
-    than as a proposed final XML renderer.
+    Render a native python object into XML dumpdata format.
     """
     def render(self, obj, **opts):
         stream = StringIO.StringIO()
 
-        xml = SimplerXMLGenerator(stream, "utf-8")
+        xml = SimplerXMLGenerator(stream, 'utf-8')
         xml.startDocument()
-        xml.startElement("django-objects", {"version": "1.0"})
+        xml.startElement('django-objects', {'version': '1.0'})
         if isinstance(obj, (list, tuple)):
             [self.model_to_xml(xml, item) for item in obj]
         else:
             self.model_to_xml(xml, obj)
-        xml.endElement("django-objects")
+        xml.endElement('django-objects')
         xml.endDocument()
         return stream.getvalue()
 
@@ -101,7 +97,7 @@ class DumpDataXMLRenderer(BaseRenderer):
         pk = unicode(data['pk'])
         model = data['model']
         fields = data['fields']
-        xml.startElement("object", {'pk': pk, 'model': model})
+        xml.startElement('object', {'pk': pk, 'model': model})
 
         # Due to implmentation details, the existing xml dumpdata format
         # renders ordered fields, whilst json and yaml render unordered
@@ -120,7 +116,7 @@ class DumpDataXMLRenderer(BaseRenderer):
             elif value is not None:
                 xml.characters(smart_unicode(value))
             xml.endElement('field')
-        xml.endElement("object")
+        xml.endElement('object')
 
 
 class CSVRenderer(BaseRenderer):
