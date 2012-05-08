@@ -111,7 +111,10 @@ class DumpDataXMLRenderer(BaseRenderer):
             attrs = {'name': key}
             attrs.update(field.attributes())
             xml.startElement('field', attrs)
-            if isinstance(value, (datetime.datetime, datetime.date, datetime.time)):
+            if attrs.get('rel', None) == 'ManyToManyRel':
+                for item in value:
+                    xml.addQuickElement('object', attrs={'pk': str(item)})
+            elif isinstance(value, (datetime.datetime, datetime.date, datetime.time)):
                 xml.characters(value.isoformat())
             elif value is not None:
                 xml.characters(smart_unicode(value))
