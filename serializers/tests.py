@@ -2,8 +2,41 @@ import datetime
 from django.core import serializers
 from django.db import models
 from django.test import TestCase
+from django.utils.datastructures import SortedDict
 from serializers import Serializer, ModelSerializer, DumpDataSerializer
 from serializers.fields import Field, NaturalKeyRelatedField
+
+
+def expand(obj):
+    """
+    Unroll any generators in returned object.
+    """
+    if isinstance(obj, dict):
+        ret = SortedDict()  # Retain original ordering
+        for key, val in obj.items():
+            ret[key] = expand(val)
+        return ret
+    elif hasattr(obj, '__iter__'):
+        return [expand(item) for item in obj]
+    return obj
+
+
+class SerializationTestCase(TestCase):
+    def assertEquals(self, lhs, rhs):
+        """
+        Regular assert, but unroll any generators before comparison.
+        """
+        lhs = expand(lhs)
+        rhs = expand(rhs)
+        return super(SerializationTestCase, self).assertEquals(lhs, rhs)
+
+
+class TestBasicObjects(SerializationTestCase):
+    def test_json(self):
+        obj = []
+        expected = '[]'
+        output = Serializer().encode(obj, 'json')
+        self.assertEquals(output, expected)
 
 
 class ExampleObject(object):
@@ -41,13 +74,13 @@ class Person(object):
         return self.full_name
 
 
-class EncoderTests(TestCase):
+class EncoderTests(SerializationTestCase):
     def setUp(self):
         self.obj = ExampleObject()
 
     def test_json(self):
         expected = '{"a": 1, "b": "foo", "c": true}'
-        output = Serializer().encode(self.obj, 'json', sort_keys=True)
+        output = Serializer().encode(self.obj, 'json')
         self.assertEquals(output, expected)
 
     def test_yaml(self):
@@ -61,7 +94,7 @@ class EncoderTests(TestCase):
         self.assertEquals(output, expected)
 
 
-class BasicSerializerTests(TestCase):
+class BasicSerializerTests(SerializationTestCase):
     def setUp(self):
         self.obj = ExampleObject()
 
@@ -159,7 +192,7 @@ class BasicSerializerTests(TestCase):
         self.assertEquals(CustomSerializer().serialize(self.obj), expected)
 
 
-class SerializeAttributeTests(TestCase):
+class SerializeAttributeTests(SerializationTestCase):
     """
     Test covering serialization of different types of attributes on objects.
     """
@@ -209,7 +242,7 @@ class SerializeAttributeTests(TestCase):
         self.assertEquals(CustomSerializer().serialize(self.obj), expected)
 
 
-class SerializerFieldTests(TestCase):
+class SerializerFieldTests(SerializationTestCase):
     """
     Tests declaring explicit fields on the serializer.
     """
@@ -392,7 +425,7 @@ class SerializerFieldTests(TestCase):
         self.assertEquals(CustomSerializer().serialize(self.obj).keys(), keys)
 
 
-class NestedSerializationTests(TestCase):
+class NestedSerializationTests(SerializationTestCase):
     """
     Tests serialization of nested objects.
     """
@@ -499,7 +532,7 @@ class NestedSerializationTests(TestCase):
         self.assertEquals(Serializer(depth=1).serialize(self.obj), expected)
 
 
-class RecursiveSerializationTests(TestCase):
+class RecursiveSerializationTests(SerializationTestCase):
     def setUp(self):
         emily = Person('emily', 'doe', 37)
         john = Person('john', 'doe', 42, daughter=emily)
@@ -533,7 +566,7 @@ class RaceEntry(models.Model):
     finish_time = models.DateTimeField()
 
 
-class TestSimpleModel(TestCase):
+class TestSimpleModel(SerializationTestCase):
     def setUp(self):
         self.dumpdata = DumpDataSerializer()
         self.serializer = ModelSerializer(depth=0)
@@ -572,7 +605,7 @@ class PremiumAccount(Account):
     date_upgraded = models.DateTimeField()
 
 
-class TestModelInheritance(TestCase):
+class TestModelInheritance(SerializationTestCase):
     def setUp(self):
         self.dumpdata = DumpDataSerializer()
         self.serializer = ModelSerializer()
@@ -623,7 +656,7 @@ class Pet(models.Model):
         return self.name
 
 
-class TestNaturalKey(TestCase):
+class TestNaturalKey(SerializationTestCase):
     """
     Test one-to-one field relationship on a model.
     """
@@ -711,7 +744,7 @@ class Profile(models.Model):
     date_of_birth = models.DateTimeField()
 
 
-class TestOneToOneModel(TestCase):
+class TestOneToOneModel(SerializationTestCase):
     """
     Test one-to-one field relationship on a model.
     """
@@ -772,7 +805,7 @@ class TestOneToOneModel(TestCase):
         )
 
 
-class TestReverseOneToOneModel(TestCase):
+class TestReverseOneToOneModel(SerializationTestCase):
     """
     Test reverse relationship of one-to-one fields.
 
@@ -829,7 +862,7 @@ class Vehicle(models.Model):
     date_of_manufacture = models.DateField()
 
 
-class TestFKModel(TestCase):
+class TestFKModel(SerializationTestCase):
     """
     Test one-to-one field relationship on a model.
     """
@@ -943,7 +976,7 @@ class Book(models.Model):
     in_stock = models.BooleanField()
 
 
-class TestManyToManyModel(TestCase):
+class TestManyToManyModel(SerializationTestCase):
     """
     Test one-to-one field relationship on a model.
     """

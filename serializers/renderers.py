@@ -1,9 +1,8 @@
 import datetime
-from django.core.serializers.json import DateTimeAwareJSONEncoder
 from django.utils import simplejson as json
 from django.utils.encoding import smart_unicode
 from django.utils.xmlutils import SimplerXMLGenerator
-from serializers.utils import SafeDumper, DictWriter
+from serializers.utils import SafeDumper, DictWriter, ExtJSONEncoder
 import StringIO
 try:
     import yaml
@@ -28,7 +27,7 @@ class JSONRenderer(BaseRenderer):
         indent = opts.pop('indent', None)
         sort_keys = opts.pop('sort_keys', False)
 
-        return json.dumps(obj, cls=DateTimeAwareJSONEncoder,
+        return json.dumps(obj, cls=ExtJSONEncoder,
                           indent=indent, sort_keys=sort_keys)
 
 
@@ -57,19 +56,19 @@ class XMLRenderer(BaseRenderer):
         return stream.getvalue()
 
     def _to_xml(self, xml, data):
-        if isinstance(data, (list, tuple)):
-            for item in data:
-                xml.startElement('item', {})
-                self._to_xml(xml, item)
-                xml.endElement('item')
-
-        elif isinstance(data, dict):
+        if isinstance(data, dict):
             xml.startElement('object', {})
             for key, value in data.items():
                 xml.startElement(key, {})
                 self._to_xml(xml, value)
                 xml.endElement(key)
             xml.endElement('object')
+
+        elif hasattr(data, '__iter__'):
+            for item in data:
+                xml.startElement('item', {})
+                self._to_xml(xml, item)
+                xml.endElement('item')
 
         else:
             xml.characters(smart_unicode(data))
@@ -85,7 +84,7 @@ class DumpDataXMLRenderer(BaseRenderer):
         xml = SimplerXMLGenerator(stream, 'utf-8')
         xml.startDocument()
         xml.startElement('django-objects', {'version': '1.0'})
-        if isinstance(obj, (list, tuple)):
+        if hasattr(obj, '__iter__'):
             [self.model_to_xml(xml, item) for item in obj]
         else:
             self.model_to_xml(xml, obj)
@@ -111,15 +110,31 @@ class DumpDataXMLRenderer(BaseRenderer):
             attrs = {'name': key}
             attrs.update(field.attributes())
             xml.startElement('field', attrs)
+
             if attrs.get('rel', None) == 'ManyToManyRel':
-                for item in value:
-                    xml.addQuickElement('object', attrs={'pk': str(item)})
+                self.handle_many_to_many(xml, value)
             elif isinstance(value, (datetime.datetime, datetime.date, datetime.time)):
-                xml.characters(value.isoformat())
+                self.handle_datetimes(xml, value)
             elif value is not None:
-                xml.characters(smart_unicode(value))
+                self.handle_value(xml, value)
+            else:
+                self.handle_none(xml)
+
             xml.endElement('field')
         xml.endElement('object')
+
+    def handle_many_to_many(self, xml, value):
+        for item in value:
+            xml.addQuickElement('object', attrs={'pk': str(item)})
+
+    def handle_datetimes(self, xml, value):
+        xml.characters(value.isoformat())
+
+    def handle_value(self, xml, value):
+        xml.characters(smart_unicode(value))
+
+    def handle_none(self, xml):
+        xml.addQuickElement('None')
 
 
 class CSVRenderer(BaseRenderer):

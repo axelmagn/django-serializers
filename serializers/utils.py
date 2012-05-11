@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from django.utils.datastructures import SortedDict
+from django.core.serializers.json import DateTimeAwareJSONEncoder
 import csv
+import types
 
 
 class DictWithMetadata(dict):
@@ -68,6 +70,19 @@ else:
             yaml.representer.SafeRepresenter.represent_dict)
     SafeDumper.add_representer(SortedDictWithMetadata,
             yaml.representer.SafeRepresenter.represent_dict)
+    SafeDumper.add_representer(types.GeneratorType,
+            yaml.representer.SafeRepresenter.represent_list)
+
+
+class ExtJSONEncoder(DateTimeAwareJSONEncoder):
+    def default(self, c):
+        # Handles generators and iterators
+        # Note that this allows generators to be passed through,
+        # but doesn't yet actually play nicely with steaming output, because
+        # the entire generated list is evaluated, rather than iterated over.
+        if hasattr(c, '__iter__'):
+            return [i for i in c]
+        return DateTimeAwareJSONEncoder.default(self, c)
 
 
 class DictWriter(csv.DictWriter):

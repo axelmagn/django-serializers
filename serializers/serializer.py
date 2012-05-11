@@ -227,13 +227,17 @@ class BaseSerializer(Field):
             ret.set_with_metadata(key, value, field)
         return ret
 
+    def serialize_iterable(self, obj):
+        for item in obj:
+            yield self.serialize(item)
+
     def serialize(self, obj):
         if self._is_protected_type(obj):
             return obj
         elif self._is_simple_callable(obj):
             return self.serialize(obj())
         elif hasattr(obj, '__iter__'):
-            return [self.serialize(item) for item in obj]
+            return self.serialize_iterable(obj)
         return self.serialize_object(obj)
 
     def encode(self, obj, format=None, **opts):
