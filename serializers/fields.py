@@ -18,6 +18,8 @@ class Field(object):
         The entry point into a field, as called by it's parent serializer.
         """
         self.obj = obj
+        self.parent = parent
+        self.root = parent.root or parent
 
         if self.source == '*':
             return self.serialize(obj)

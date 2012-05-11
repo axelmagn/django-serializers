@@ -105,6 +105,8 @@ class BaseSerializer(Field):
         serialize = kwargs.get('serialize', None)
         super(BaseSerializer, self).__init__(source=source, label=label, serialize=serialize)
 
+        self.kwargs = kwargs
+        self.root = None
         self.opts = self.options_class(self.Meta, **kwargs)
         self.stack = []
         self.fields = SortedDict((key, copy.copy(field))
@@ -199,6 +201,7 @@ class BaseSerializer(Field):
         of state so that we can deal with handling maximum depth and recursion.
         """
         self.parent = parent
+        self.root = parent.root or parent
         self.orig_obj = obj
         self.orig_field_name = field_name
 
