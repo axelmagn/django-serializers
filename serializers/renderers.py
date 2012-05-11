@@ -96,10 +96,12 @@ class XMLRenderer(BaseRenderer):
             xml.endElement('object')
 
         elif hasattr(data, '__iter__'):
+            xml.startElement('list', {})
             for item in data:
                 xml.startElement('item', {})
                 self._to_xml(xml, item)
                 xml.endElement('item')
+            xml.endElement('list')
 
         else:
             xml.characters(smart_unicode(data))
