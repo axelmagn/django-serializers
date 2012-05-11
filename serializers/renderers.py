@@ -1,6 +1,7 @@
 import datetime
 from django.utils import simplejson as json
 from django.utils.encoding import smart_unicode
+from django.utils.html import urlize
 from django.utils.xmlutils import SimplerXMLGenerator
 from serializers.utils import SafeDumper, DictWriter, ExtJSONEncoder
 import StringIO
@@ -40,6 +41,36 @@ class YAMLRenderer(BaseRenderer):
         default_flow_style = opts.pop('default_flow_style', None)
         return yaml.dump(obj, Dumper=SafeDumper,
                          indent=indent, default_flow_style=default_flow_style)
+
+
+class HTMLRenderer(BaseRenderer):
+    """
+    A basic html renderer, that renders data into tabular format.
+    """
+    def render(self, obj, **opts):
+        stream = StringIO.StringIO()
+        self._to_html(stream, obj)
+        return stream.getvalue()
+
+    def _to_html(self, stream, data):
+        if isinstance(data, dict):
+            stream.write('<table>\n')
+            for key, value in data.items():
+                stream.write('<tr><td>%s</td><td>' % key)
+                self._to_html(stream, value)
+                stream.write('</td></tr>\n')
+            stream.write('</table>\n')
+
+        elif hasattr(data, '__iter__'):
+            stream.write('<ul>\n')
+            for item in data:
+                stream.write('<li>')
+                self._to_html(stream, item)
+                stream.write('</li>')
+            stream.write('</ul>\n')
+
+        else:
+            stream.write(urlize(smart_unicode(data)))
 
 
 class XMLRenderer(BaseRenderer):

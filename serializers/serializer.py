@@ -8,6 +8,7 @@ from serializers.renderers import (
     JSONRenderer,
     YAMLRenderer,
     XMLRenderer,
+    HTMLRenderer,
     CSVRenderer,
     DumpDataXMLRenderer
 )
@@ -92,6 +93,7 @@ class BaseSerializer(Field):
         'json': JSONRenderer,
         'yaml': YAMLRenderer,
         'csv': CSVRenderer,
+        'html': HTMLRenderer,
     }
 
     options_class = SerializerOptions
