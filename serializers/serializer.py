@@ -236,6 +236,9 @@ class BaseSerializer(Field):
             return obj
         elif self._is_simple_callable(obj):
             return self.serialize(obj())
+        elif isinstance(obj, dict):
+            return dict([(key, self.serialize(val))
+                         for (key, val) in obj.items()])
         elif hasattr(obj, '__iter__'):
             return self.serialize_iterable(obj)
         return self.serialize_object(obj)

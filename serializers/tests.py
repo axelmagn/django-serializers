@@ -32,9 +32,15 @@ class SerializationTestCase(TestCase):
 
 
 class TestBasicObjects(SerializationTestCase):
-    def test_json(self):
+    def test_list(self):
         obj = []
         expected = '[]'
+        output = Serializer().encode(obj, 'json')
+        self.assertEquals(output, expected)
+
+    def test_dict(self):
+        obj = {}
+        expected = '{}'
         output = Serializer().encode(obj, 'json')
         self.assertEquals(output, expected)
 
