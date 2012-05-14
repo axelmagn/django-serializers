@@ -1069,3 +1069,42 @@ class TestManyToManyModel(SerializationTestCase):
             self.flat_model.serialize(Book.objects.get(id=1)),
             expected
         )
+
+
+class Anchor(models.Model):
+    data = models.CharField(max_length=30)
+
+    class Meta:
+        ordering = ('id',)
+
+
+class M2MIntermediateData(models.Model):
+    data = models.ManyToManyField(Anchor, null=True, through='Intermediate')
+
+
+class Intermediate(models.Model):
+    left = models.ForeignKey(M2MIntermediateData)
+    right = models.ForeignKey(Anchor)
+    extra = models.CharField(max_length=30, blank=True, default="doesn't matter")
+
+
+class TestManyToManyThroughModel(SerializationTestCase):
+    """
+    Test one-to-one field relationship on a model with a 'through' relationship.
+    """
+    def setUp(self):
+        self.dumpdata = DumpDataSerializer()
+        right = Anchor.objects.create(data='foobar')
+        left = M2MIntermediateData.objects.create()
+        Intermediate.objects.create(extra='wibble', left=left, right=right)
+        self.obj = left
+
+    def test_m2m_through_dumpdata_json(self):
+        self.assertEquals(
+            self.dumpdata.serialize(M2MIntermediateData.objects.all(), 'json'),
+            serializers.serialize('json', M2MIntermediateData.objects.all())
+        )
+        self.assertEquals(
+            self.dumpdata.serialize(Anchor.objects.all(), 'json'),
+            serializers.serialize('json', Anchor.objects.all())
+        )
