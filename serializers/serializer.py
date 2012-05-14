@@ -14,6 +14,7 @@ from serializers.renderers import (
 )
 from serializers.fields import *
 from serializers.utils import DictWithMetadata, SortedDictWithMetadata
+from StringIO import StringIO
 
 
 def _remove_items(seq, exclude):
@@ -58,6 +59,7 @@ def _get_option(name, kwargs, meta, default):
 
 class SerializerOptions(object):
     def __init__(self, meta, **kwargs):
+        self.format = _get_option('format', kwargs, meta, None)
         self.depth = _get_option('depth', kwargs, meta, None)
         self.include = _get_option('include', kwargs, meta, ())
         self.exclude = _get_option('exclude', kwargs, meta, ())
@@ -96,8 +98,9 @@ class BaseSerializer(Field):
         'html': HTMLRenderer,
     }
 
-    options_class = SerializerOptions
+    _options_class = SerializerOptions
     _use_sorted_dict = True
+    internal_use_only = False  # Backwards compatability
 
     def __init__(self, **kwargs):
         source = kwargs.get('source', None)
@@ -107,7 +110,7 @@ class BaseSerializer(Field):
 
         self.kwargs = kwargs
         self.root = None
-        self.opts = self.options_class(self.Meta, **kwargs)
+        self.opts = self._options_class(self.Meta, **kwargs)
         self.stack = []
         self.fields = SortedDict((key, copy.copy(field))
                            for key, field in self.base_fields.items())
@@ -250,13 +253,20 @@ class BaseSerializer(Field):
 
     def _render(self, data, format, **opts):
         renderer = self.renderer_classes[format]()
-        return renderer.render(data, **opts)
+        return renderer.render(data, self.stream, **opts)
 
     def serialize(self, obj, format=None, **opts):
         data = self.convert(obj)
+        format = format or self.opts.format
         if format:
-            return self._render(data, format, **opts)
+            self.stream = opts.pop('stream', StringIO())
+            self._render(data, format, **opts)
+            return self.getvalue()
         return data
+
+    def getvalue(self):
+        if callable(getattr(self.stream, 'getvalue', None)):
+            return self.stream.getvalue()
 
 
 class Serializer(BaseSerializer):
@@ -267,7 +277,7 @@ class ModelSerializer(RelatedField, Serializer):
     """
     A serializer that deals with model instances and querysets.
     """
-    options_class = ModelSerializerOptions
+    _options_class = ModelSerializerOptions
 
     class Meta:
         related_field = PrimaryKeyRelatedField

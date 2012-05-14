@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 from django.utils.datastructures import SortedDict
-from django.core.serializers.json import DateTimeAwareJSONEncoder
+from django.utils.timezone import is_aware
+
 import csv
+import datetime
+import decimal
+import json
 import types
 
 
@@ -74,15 +78,33 @@ else:
             yaml.representer.SafeRepresenter.represent_list)
 
 
-class ExtJSONEncoder(DateTimeAwareJSONEncoder):
-    def default(self, c):
-        # Handles generators and iterators
-        # Note that this allows generators to be passed through,
-        # but doesn't yet actually play nicely with steaming output, because
-        # the entire generated list is evaluated, rather than iterated over.
-        if hasattr(c, '__iter__'):
-            return [i for i in c]
-        return DateTimeAwareJSONEncoder.default(self, c)
+class DjangoJSONEncoder(json.JSONEncoder):
+    """
+    JSONEncoder subclass that knows how to encode date/time and decimal types.
+    """
+    def default(self, o):
+        # See "Date Time String Format" in the ECMA-262 specification.
+        if isinstance(o, datetime.datetime):
+            r = o.isoformat()
+            if o.microsecond:
+                r = r[:23] + r[26:]
+            if r.endswith('+00:00'):
+                r = r[:-6] + 'Z'
+            return r
+        elif isinstance(o, datetime.date):
+            return o.isoformat()
+        elif isinstance(o, datetime.time):
+            if is_aware(o):
+                raise ValueError("JSON can't represent timezone-aware times.")
+            r = o.isoformat()
+            if o.microsecond:
+                r = r[:12]
+            return r
+        elif isinstance(o, decimal.Decimal):
+            return str(o)
+        elif hasattr(o, '__iter__'):
+            return [i for i in o]
+        return super(DjangoJSONEncoder, self).default(o)
 
 
 class DictWriter(csv.DictWriter):

@@ -3,7 +3,7 @@ from django.utils import simplejson as json
 from django.utils.encoding import smart_unicode
 from django.utils.html import urlize
 from django.utils.xmlutils import SimplerXMLGenerator
-from serializers.utils import SafeDumper, DictWriter, ExtJSONEncoder
+from serializers.utils import SafeDumper, DictWriter, DjangoJSONEncoder
 import StringIO
 try:
     import yaml
@@ -16,7 +16,7 @@ class BaseRenderer(object):
     Defines the base interface that renderers should implement.
     """
 
-    def render(obj, **opts):
+    def render(obj, stream, **opts):
         return str(obj)
 
 
@@ -24,22 +24,21 @@ class JSONRenderer(BaseRenderer):
     """
     Render a native python object into JSON.
     """
-    def render(self, obj, **opts):
+    def render(self, obj, stream, **opts):
         indent = opts.pop('indent', None)
         sort_keys = opts.pop('sort_keys', False)
-
-        return json.dumps(obj, cls=ExtJSONEncoder,
-                          indent=indent, sort_keys=sort_keys)
+        return json.dump(obj, stream, cls=DjangoJSONEncoder,
+                         indent=indent, sort_keys=sort_keys)
 
 
 class YAMLRenderer(BaseRenderer):
     """
     Render a native python object into YAML.
     """
-    def render(self, obj, **opts):
+    def render(self, obj, stream, **opts):
         indent = opts.pop('indent', None)
         default_flow_style = opts.pop('default_flow_style', None)
-        return yaml.dump(obj, Dumper=SafeDumper,
+        return yaml.dump(obj, stream, Dumper=SafeDumper,
                          indent=indent, default_flow_style=default_flow_style)
 
 
@@ -47,10 +46,8 @@ class HTMLRenderer(BaseRenderer):
     """
     A basic html renderer, that renders data into tabular format.
     """
-    def render(self, obj, **opts):
-        stream = StringIO.StringIO()
+    def render(self, obj, stream, **opts):
         self._to_html(stream, obj)
-        return stream.getvalue()
 
     def _to_html(self, stream, data):
         if isinstance(data, dict):
@@ -77,14 +74,11 @@ class XMLRenderer(BaseRenderer):
     """
     Render a native python object into a generic XML format.
     """
-    def render(self, obj, **opts):
-        stream = StringIO.StringIO()
-
+    def render(self, obj, stream, **opts):
         xml = SimplerXMLGenerator(stream, 'utf-8')
         xml.startDocument()
         self._to_xml(xml, obj)
         xml.endDocument()
-        return stream.getvalue()
 
     def _to_xml(self, xml, data):
         if isinstance(data, dict):
@@ -111,9 +105,7 @@ class DumpDataXMLRenderer(BaseRenderer):
     """
     Render a native python object into XML dumpdata format.
     """
-    def render(self, obj, **opts):
-        stream = StringIO.StringIO()
-
+    def render(self, obj, stream, **opts):
         xml = SimplerXMLGenerator(stream, 'utf-8')
         xml.startDocument()
         xml.startElement('django-objects', {'version': '1.0'})
@@ -123,7 +115,6 @@ class DumpDataXMLRenderer(BaseRenderer):
             self.model_to_xml(xml, obj)
         xml.endElement('django-objects')
         xml.endDocument()
-        return stream.getvalue()
 
     def model_to_xml(self, xml, data):
         pk = unicode(data['pk'])
@@ -171,17 +162,15 @@ class DumpDataXMLRenderer(BaseRenderer):
 
 
 class CSVRenderer(BaseRenderer):
-    def render(self, obj, **opts):
+    def render(self, obj, stream, **opts):
         if not hasattr(obj, '__iter__'):
             obj = [obj]
-        stream = StringIO.StringIO()
         writer = None
         for item in obj:
             if not writer:
                 writer = DictWriter(stream, item.keys())
                 writer.writeheader()
             writer.writerow(item)
-        return stream.getvalue()
 
 if not yaml:
     YAMLRenderer = None
