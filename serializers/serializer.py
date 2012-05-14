@@ -298,6 +298,15 @@ class ModelSerializer(RelatedField, Serializer):
                 while pk_field.rel:
                     pk_field = pk_field.rel.to._meta.pk
                 fields.append(pk_field)
+            elif field_type == 'many_to_many':
+                # We're explicitly dropping 'through' m2m relations here
+                # for the sake of dumpdata compatability.
+                # Need to think about what we actually want to do.
+                fields.extend([
+                    field for field in
+                    getattr(concrete_model._meta, field_type)
+                    if field.serialize and field.rel.through._meta.auto_created
+                ])
             else:
                 # Add any non-pk field types
                 fields.extend([
