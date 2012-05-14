@@ -5,15 +5,15 @@ from django.db.models.related import RelatedObject
 class Field(object):
     creation_counter = 0
 
-    def __init__(self, source=None, label=None, serialize=None):
+    def __init__(self, source=None, label=None, convert=None):
         self.source = source
         self.label = label
-        if serialize:
-            self.serialize = serialize
+        if convert:
+            self.convert = convert
         self.creation_counter = Field.creation_counter
         Field.creation_counter += 1
 
-    def _serialize_field(self, obj, field_name, parent):
+    def _convert_field(self, obj, field_name, parent):
         """
         The entry point into a field, as called by it's parent serializer.
         """
@@ -22,31 +22,31 @@ class Field(object):
         self.root = parent.root or parent
 
         if self.source == '*':
-            return self.serialize(obj)
+            return self.convert(obj)
 
         self.field_name = self.source or field_name
-        return self.serialize_field(obj, self.field_name)
+        return self.convert_field(obj, self.field_name)
 
-    def serialize_field(self, obj, field_name):
+    def convert_field(self, obj, field_name):
         """
         Given the parent object and the field name, returns the field value
         that should be serialized.
         """
-        return self.serialize(getattr(obj, field_name))
+        return self.convert(getattr(obj, field_name))
 
-    def serialize(self, obj):
+    def convert(self, obj):
         """
-        Serializes the field's value into it's simple representation.
+        Converts the field's value into it's simple representation.
         """
         if is_protected_type(obj):
             return obj
         elif hasattr(obj, '__iter__'):
-            return [self.serialize(item) for item in obj]
+            return [self.convert(item) for item in obj]
         return smart_unicode(obj)
 
 
 class ModelField(Field):
-    def serialize_field(self, obj, field_name):
+    def convert_field(self, obj, field_name):
         field = self.obj._meta.get_field_by_name(self.field_name)[0]
         value = field._get_val_from_obj(obj)
         # Protected types (i.e., primitives like None, numbers, dates,
@@ -68,15 +68,15 @@ class RelatedField(Field):
     """
     A base class for model related fields or related managers.
 
-    Subclass this and override `serialize` to define custom behaviour when
+    Subclass this and override `convert` to define custom behaviour when
     serializing related objects.
     """
 
-    def serialize_field(self, obj, field_name):
+    def convert_field(self, obj, field_name):
         obj = getattr(obj, field_name)
         if obj.__class__.__name__ in ('RelatedManager', 'ManyRelatedManager'):
-            return [self.serialize(item) for item in obj.all()]
-        return self.serialize(obj)
+            return [self.convert(item) for item in obj.all()]
+        return self.convert(obj)
 
     def attributes(self):
         field = self.obj._meta.get_field_by_name(self.field_name)[0]
@@ -98,10 +98,10 @@ class PrimaryKeyRelatedField(RelatedField):
     # An alternative implementation would simply be this...
     #
     # class PrimaryKeyRelatedField(RelatedField):
-    #     def serialize(self, obj):
+    #     def convert(self, obj):
     #         return obj.pk
 
-    def serialize(self, pk):
+    def convert(self, pk):
         """
         Simply returns the object's pk.  You can subclass this method to
         provide different serialization behavior of the pk.
@@ -109,7 +109,7 @@ class PrimaryKeyRelatedField(RelatedField):
         """
         return pk
 
-    def serialize_field(self, obj, field_name):
+    def convert_field(self, obj, field_name):
         self.test = field_name
         try:
             obj = obj.serializable_value(field_name)
@@ -117,12 +117,12 @@ class PrimaryKeyRelatedField(RelatedField):
             field = obj._meta.get_field_by_name(field_name)[0]
             obj = getattr(obj, field_name)
             if obj.__class__.__name__ == 'RelatedManager':
-                return [self.serialize(item.pk) for item in obj.all()]
+                return [self.convert(item.pk) for item in obj.all()]
             elif isinstance(field, RelatedObject):
-                return self.serialize(obj.pk)
+                return self.convert(obj.pk)
             raise
         if obj.__class__.__name__ == 'ManyRelatedManager':
-            return [self.serialize(item.pk) for item in obj.all()]
+            return [self.convert(item.pk) for item in obj.all()]
         return obj
 
 
@@ -130,7 +130,7 @@ class NaturalKeyRelatedField(RelatedField):
     """
     Serializes a model related field or related manager to a natural key value.
     """
-    def serialize(self, obj):
+    def convert(self, obj):
         return obj.natural_key()
 
 
@@ -138,5 +138,5 @@ class ModelNameField(Field):
     """
     Serializes the model instance's model name.  Eg. 'auth.User'.
     """
-    def serialize_field(self, obj, field_name):
+    def convert_field(self, obj, field_name):
         return smart_unicode(obj._meta)

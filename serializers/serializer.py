@@ -102,8 +102,8 @@ class BaseSerializer(Field):
     def __init__(self, **kwargs):
         source = kwargs.get('source', None)
         label = kwargs.get('label', None)
-        serialize = kwargs.get('serialize', None)
-        super(BaseSerializer, self).__init__(source=source, label=label, serialize=serialize)
+        convert = kwargs.get('convert', None)
+        super(BaseSerializer, self).__init__(source=source, label=label, convert=convert)
 
         self.kwargs = kwargs
         self.root = None
@@ -195,7 +195,7 @@ class BaseSerializer(Field):
             return field.label
         return field_name
 
-    def _serialize_field(self, obj, field_name, parent):
+    def _convert_field(self, obj, field_name, parent):
         """
         Same behaviour as usual Field, except that we need to keep track
         of state so that we can deal with handling maximum depth and recursion.
@@ -209,15 +209,15 @@ class BaseSerializer(Field):
         if parent.opts.depth is not None:
             self.opts.depth = parent.opts.depth - 1
 
-        return super(BaseSerializer, self)._serialize_field(obj, field_name, parent)
+        return super(BaseSerializer, self)._convert_field(obj, field_name, parent)
 
-    def serialize_object(self, obj):
+    def convert_object(self, obj):
         if self.source != '*' and obj in self.stack:
             serializer = self.get_recursive_serializer(self.orig_obj,
                                                        self.orig_field_name)
-            return serializer._serialize_field(self.orig_obj,
-                                               self.orig_field_name,
-                                               self)
+            return serializer._convert_field(self.orig_obj,
+                                             self.orig_field_name,
+                                             self)
         self.stack.append(obj)
 
         if self._use_sorted_dict:
@@ -228,35 +228,35 @@ class BaseSerializer(Field):
         for field_name in self._get_field_names(obj):
             field = self._get_field_serializer(obj, field_name)
             key = self.get_field_key(obj, field_name, field)
-            value = field._serialize_field(obj, field_name, self)
+            value = field._convert_field(obj, field_name, self)
             ret.set_with_metadata(key, value, field)
         return ret
 
-    def serialize_iterable(self, obj):
+    def convert_iterable(self, obj):
         for item in obj:
-            yield self.serialize(item)
+            yield self.convert(item)
 
-    def serialize(self, obj):
+    def convert(self, obj):
         if self._is_protected_type(obj):
             return obj
         elif self._is_simple_callable(obj):
-            return self.serialize(obj())
+            return self.convert(obj())
         elif isinstance(obj, dict):
-            return dict([(key, self.serialize(val))
+            return dict([(key, self.convert(val))
                          for (key, val) in obj.items()])
         elif hasattr(obj, '__iter__'):
-            return self.serialize_iterable(obj)
-        return self.serialize_object(obj)
+            return self.convert_iterable(obj)
+        return self.convert_object(obj)
 
-    def encode(self, obj, format=None, **opts):
-        data = self.serialize(obj)
-        if format:
-            return self.render(data, format, **opts)
-        return data
-
-    def render(self, data, format, **opts):
+    def _render(self, data, format, **opts):
         renderer = self.renderer_classes[format]()
         return renderer.render(data, **opts)
+
+    def serialize(self, obj, format=None, **opts):
+        data = self.convert(obj)
+        if format:
+            return self._render(data, format, **opts)
+        return data
 
 
 class Serializer(BaseSerializer):
@@ -339,7 +339,7 @@ class DumpDataSerializer(ModelSerializer):
     model = ModelNameField()
     fields = DumpDataFields(source='*')
 
-    def encode(self, obj, format=None, **opts):
+    def serialize(self, obj, format=None, **opts):
         if opts.get('use_natural_keys', None):
             self.fields['fields'] = DumpDataFields(source='*', related_field=NaturalKeyRelatedField)
-        return super(DumpDataSerializer, self).encode(obj, format, **opts)
+        return super(DumpDataSerializer, self).serialize(obj, format, **opts)
