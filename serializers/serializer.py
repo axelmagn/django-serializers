@@ -235,7 +235,7 @@ class BaseSerializer(Field):
             ret.set_with_metadata(key, value, field)
         return ret
 
-    def convert_iterable(self, obj):
+    def _convert_iterable(self, obj):
         for item in obj:
             yield self.convert(item)
 
@@ -248,25 +248,23 @@ class BaseSerializer(Field):
             return dict([(key, self.convert(val))
                          for (key, val) in obj.items()])
         elif hasattr(obj, '__iter__'):
-            return self.convert_iterable(obj)
+            return self._convert_iterable(obj)
         return self.convert_object(obj)
 
-    def _render(self, data, format, **opts):
+    def _render(self, data, stream, format, **opts):
         renderer = self.renderer_classes[format]()
-        return renderer.render(data, self.stream, **opts)
+        return renderer.render(data, stream, **opts)
 
     def serialize(self, obj, format=None, **opts):
         data = self.convert(obj)
         format = format or self.opts.format
         if format:
-            self.stream = opts.pop('stream', StringIO())
-            self._render(data, format, **opts)
-            return self.getvalue()
+            stream = opts.pop('stream', StringIO())
+            self._render(data, stream, format, **opts)
+            if hasattr(stream, 'getvalue'):
+                return stream.getvalue()
+            return None
         return data
-
-    def getvalue(self):
-        if callable(getattr(self.stream, 'getvalue', None)):
-            return self.stream.getvalue()
 
 
 class Serializer(BaseSerializer):
@@ -352,4 +350,7 @@ class DumpDataSerializer(ModelSerializer):
     def serialize(self, obj, format=None, **opts):
         if opts.get('use_natural_keys', None):
             self.fields['fields'] = DumpDataFields(source='*', related_field=NaturalKeyRelatedField)
+
+        #if opts.get('fields', None):
+        #    self.fields['fields'].opts.fields = opts.get('fields', None)
         return super(DumpDataSerializer, self).serialize(obj, format, **opts)
