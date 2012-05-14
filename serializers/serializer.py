@@ -1,4 +1,5 @@
 from decimal import Decimal
+from django.db.models.fields import FieldDoesNotExist
 from django.utils.datastructures import SortedDict
 import copy
 import datetime
@@ -107,11 +108,8 @@ class BaseSerializer(Field):
         label = kwargs.get('label', None)
         convert = kwargs.get('convert', None)
         super(BaseSerializer, self).__init__(source=source, label=label, convert=convert)
-
         self.kwargs = kwargs
-        self.root = None
         self.opts = self._options_class(self.Meta, **kwargs)
-        self.stack = []
         self.fields = SortedDict((key, copy.copy(field))
                            for key, field in self.base_fields.items())
 
@@ -256,6 +254,9 @@ class BaseSerializer(Field):
         return renderer.render(data, stream, **opts)
 
     def serialize(self, obj, format=None, **opts):
+        self.root = None
+        self.stack = []
+
         data = self.convert(obj)
         format = format or self.opts.format
         if format:
@@ -345,12 +346,12 @@ class DumpDataSerializer(ModelSerializer):
 
     pk = Field()
     model = ModelNameField()
-    fields = DumpDataFields(source='*')
+    # fields = DumpDataFields(source='*') - Actually set in serialize
 
     def serialize(self, obj, format=None, **opts):
         if opts.get('use_natural_keys', None):
-            self.fields['fields'] = DumpDataFields(source='*', related_field=NaturalKeyRelatedField)
+            self.fields['fields'] = DumpDataFields(source='*', related_field=NaturalKeyRelatedField, fields=opts.get('fields', None))
+        else:
+            self.fields['fields'] = DumpDataFields(source='*', fields=opts.get('fields', None))
 
-        #if opts.get('fields', None):
-        #    self.fields['fields'].opts.fields = opts.get('fields', None)
         return super(DumpDataSerializer, self).serialize(obj, format, **opts)
