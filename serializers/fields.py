@@ -131,7 +131,9 @@ class NaturalKeyRelatedField(RelatedField):
     Serializes a model related field or related manager to a natural key value.
     """
     def convert(self, obj):
-        return obj.natural_key()
+        if hasattr(obj, 'natural_key'):
+            return obj.natural_key()
+        return obj
 
 
 class ModelNameField(Field):
