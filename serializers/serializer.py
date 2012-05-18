@@ -258,9 +258,15 @@ class BaseSerializer(Field):
             stream = opts.pop('stream', StringIO())
             self.render(data, stream, format, **opts)
             if hasattr(stream, 'getvalue'):
-                return stream.getvalue()
-            return None
-        return data
+                self.value = stream.getvalue()
+            else:
+                self.value = None
+        else:
+            self.value = data
+        return self.value
+
+    def getvalue(self):
+        return self.value
 
 
 class Serializer(BaseSerializer):
