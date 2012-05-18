@@ -425,7 +425,7 @@ The class that should be used for serializing fields when a recursion occurs.
 Default is `None`, which indicates that it should fall back to using a flat
 field representation.
 
-ModelSerializer Options
+ModelSerializer options
 =======================
 
 The ModelSerializer supports all the options for Serializer, as well as

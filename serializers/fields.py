@@ -40,6 +40,9 @@ class Field(object):
         """
         if is_protected_type(obj):
             return obj
+        elif isinstance(obj, dict):
+            return dict([(key, self.convert(val))
+                         for (key, val) in obj.items()])
         elif hasattr(obj, '__iter__'):
             return [self.convert(item) for item in obj]
         return smart_unicode(obj)
