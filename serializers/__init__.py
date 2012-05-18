@@ -1,14 +1,15 @@
 from serializers.serializer import (
     Serializer,
+    ObjectSerializer,
     ModelSerializer,
     DumpDataSerializer
 )
 from serializers.fields import (
     Field,
+    ModelField,
     RelatedField,
     PrimaryKeyRelatedField,
     NaturalKeyRelatedField,
-    ModelNameField
 )
 
 __version__ = '0.4.1'

@@ -68,8 +68,12 @@ class SerializerOptions(object):
         self.include_default_fields = _get_option(
             'include_default_fields', kwargs, meta, False
         )
+
+
+class ObjectSerializerOptions(SerializerOptions):
+    def __init__(self, meta, **kwargs):
+        super(ObjectSerializerOptions, self).__init__(meta, **kwargs)
         self.flat_field = _get_option('flat_field', kwargs, meta, Field)
-        self.recursive_field = _get_option('recursive_field', kwargs, meta, None)
         self.nested_field = _get_option('nested_field', kwargs, meta, None)
 
 
@@ -78,7 +82,9 @@ class ModelSerializerOptions(SerializerOptions):
         super(ModelSerializerOptions, self).__init__(meta, **kwargs)
         self.model_field_types = _get_option('model_field_types', kwargs, meta, None)
         self.model_field = _get_option('model_field', kwargs, meta, ModelField)
+        self.non_model_field = _get_option('non_model_field', kwargs, meta, Field)
         self.related_field = _get_option('related_field', kwargs, meta, PrimaryKeyRelatedField)
+        self.nested_related_field = _get_option('nested_related_field', kwargs, meta, None)
 
 
 class SerializerMetaclass(type):
@@ -114,15 +120,13 @@ class BaseSerializer(Field):
                            for key, field in self.base_fields.items())
 
     def get_flat_serializer(self, obj, field_name):
-        return self.opts.flat_field()
-
-    def get_recursive_serializer(self, obj, field_name):
-        if self.opts.recursive_field:
-            return self.opts.recursive_field()
-        return self.get_flat_serializer(obj, field_name)
+        raise NotImplementedError()
 
     def get_nested_serializer(self, obj, field_name):
-        return (self.opts.nested_field or self.__class__)()
+        raise NotImplementedError()
+
+    def get_default_field_names(self, obj):
+        raise NotImplementedError()
 
     def _is_protected_type(self, obj):
         """
@@ -179,15 +183,6 @@ class BaseSerializer(Field):
             return self.get_flat_serializer(obj, field_name)
         return self.get_nested_serializer(obj, field_name)
 
-    def get_default_field_names(self, obj):
-        """
-        Given an object, return the default set of field names to serialize.
-        This is what would be serialized if no explicit `Serializer` fields
-        are declared.
-        """
-        return sorted([key for key in obj.__dict__.keys()
-                       if not(key.startswith('_'))])
-
     def get_field_key(self, obj, field_name, field):
         """
         Return the key that should be used for a given field.
@@ -214,8 +209,8 @@ class BaseSerializer(Field):
 
     def convert_object(self, obj):
         if self.source != '*' and obj in self.stack:
-            serializer = self.get_recursive_serializer(self.orig_obj,
-                                                       self.orig_field_name)
+            serializer = self.get_flat_serializer(self.orig_obj,
+                                                  self.orig_field_name)
             return serializer._convert_field(self.orig_obj,
                                              self.orig_field_name,
                                              self)
@@ -249,7 +244,7 @@ class BaseSerializer(Field):
             return self._convert_iterable(obj)
         return self.convert_object(obj)
 
-    def _render(self, data, stream, format, **opts):
+    def render(self, data, stream, format, **opts):
         renderer = self.renderer_classes[format]()
         return renderer.render(data, stream, **opts)
 
@@ -261,7 +256,7 @@ class BaseSerializer(Field):
         format = format or self.opts.format
         if format:
             stream = opts.pop('stream', StringIO())
-            self._render(data, stream, format, **opts)
+            self.render(data, stream, format, **opts)
             if hasattr(stream, 'getvalue'):
                 return stream.getvalue()
             return None
@@ -270,6 +265,25 @@ class BaseSerializer(Field):
 
 class Serializer(BaseSerializer):
     __metaclass__ = SerializerMetaclass
+
+
+class ObjectSerializer(Serializer):
+    _options_class = ObjectSerializerOptions
+
+    def get_default_field_names(self, obj):
+        """
+        Given an object, return the default set of field names to serialize.
+        This is what would be serialized if no explicit `Serializer` fields
+        are declared.
+        """
+        return sorted([key for key in obj.__dict__.keys()
+                       if not(key.startswith('_'))])
+
+    def get_flat_serializer(self, obj, field_name):
+        return self.opts.flat_field()
+
+    def get_nested_serializer(self, obj, field_name):
+        return (self.opts.nested_field or self.__class__)()
 
 
 class ModelSerializer(RelatedField, Serializer):
@@ -316,9 +330,6 @@ class ModelSerializer(RelatedField, Serializer):
                 ])
         return [field.name for field in fields]
 
-    def get_related_serializer(self, obj, field_name):
-        return self.opts.related_field()
-
     def get_flat_serializer(self, obj, field_name):
         """
         We subclass this method to switch between `related_field` and
@@ -327,10 +338,23 @@ class ModelSerializer(RelatedField, Serializer):
         try:
             field = obj._meta.get_field_by_name(field_name)[0]
             if isinstance(field, RelatedObject) or field.rel:
-                return self.get_related_serializer(obj, field_name)
+                return self.opts.related_field()
             return self.opts.model_field()
         except FieldDoesNotExist:
-            return self.opts.flat_field()
+            return self.opts.non_model_field()
+
+    def get_nested_serializer(self, obj, field_name):
+        """
+        We subclass this method to switch between `related_field` and
+        `flat_field` depending on the field type.
+        """
+        try:
+            field = obj._meta.get_field_by_name(field_name)[0]
+            if isinstance(field, RelatedObject) or field.rel:
+                return (self.opts.nested_related_field or self.__class__)()
+            return self.opts.model_field()
+        except FieldDoesNotExist:
+            return self.opts.non_model_field()
 
 
 class DumpDataFields(ModelSerializer):
@@ -364,3 +388,18 @@ class DumpDataSerializer(ModelSerializer):
             self.fields['fields'] = DumpDataFields(source='*', fields=opts.get('fields', None))
 
         return super(DumpDataSerializer, self).serialize(obj, format, **opts)
+
+
+class JSONDumpDataSerializer(DumpDataSerializer):
+    class Meta(DumpDataSerializer.Meta):
+        format = 'json'
+
+
+class YAMLDumpDataSerializer(DumpDataSerializer):
+    class Meta(DumpDataSerializer.Meta):
+        format = 'yaml'
+
+
+class XMLDumpDataSerializer(DumpDataSerializer):
+    class Meta(DumpDataSerializer.Meta):
+        format = 'xml'

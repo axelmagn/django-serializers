@@ -3,7 +3,7 @@ from django.core import serializers
 from django.db import models
 from django.test import TestCase
 from django.utils.datastructures import SortedDict
-from serializers import Serializer, ModelSerializer, DumpDataSerializer
+from serializers import ObjectSerializer, ModelSerializer, DumpDataSerializer
 from serializers.fields import Field, NaturalKeyRelatedField
 
 
@@ -35,13 +35,13 @@ class TestBasicObjects(SerializationTestCase):
     def test_list(self):
         obj = []
         expected = '[]'
-        output = Serializer().serialize(obj, 'json')
+        output = ObjectSerializer().serialize(obj, 'json')
         self.assertEquals(output, expected)
 
     def test_dict(self):
         obj = {}
         expected = '{}'
-        output = Serializer().serialize(obj, 'json')
+        output = ObjectSerializer().serialize(obj, 'json')
         self.assertEquals(output, expected)
 
 
@@ -86,17 +86,17 @@ class EncoderTests(SerializationTestCase):
 
     def test_json(self):
         expected = '{"a": 1, "b": "foo", "c": true}'
-        output = Serializer().serialize(self.obj, 'json')
+        output = ObjectSerializer().serialize(self.obj, 'json')
         self.assertEquals(output, expected)
 
     def test_yaml(self):
         expected = '{a: 1, b: foo, c: true}\n'
-        output = Serializer().serialize(self.obj, 'yaml')
+        output = ObjectSerializer().serialize(self.obj, 'yaml')
         self.assertEquals(output, expected)
 
     def test_xml(self):
         expected = '<?xml version="1.0" encoding="utf-8"?>\n<object><a>1</a><b>foo</b><c>True</c></object>'
-        output = Serializer().serialize(self.obj, 'xml')
+        output = ObjectSerializer().serialize(self.obj, 'xml')
         self.assertEquals(output, expected)
 
 
@@ -114,13 +114,13 @@ class BasicSerializerTests(SerializationTestCase):
             'c': True
         }
 
-        self.assertEquals(Serializer().serialize(self.obj), expected)
+        self.assertEquals(ObjectSerializer().serialize(self.obj), expected)
 
     def test_serialize_fields(self):
         """
         Setting 'Meta.fields' specifies exactly which fields to serialize.
         """
-        class CustomSerializer(Serializer):
+        class CustomSerializer(ObjectSerializer):
             class Meta:
                 fields = ('a', 'c')
 
@@ -135,7 +135,7 @@ class BasicSerializerTests(SerializationTestCase):
         """
         Setting 'Meta.exclude' causes a field to be excluded.
         """
-        class CustomSerializer(Serializer):
+        class CustomSerializer(ObjectSerializer):
             class Meta:
                 exclude = ('b',)
 
@@ -150,7 +150,7 @@ class BasicSerializerTests(SerializationTestCase):
         """
         Setting 'Meta.include' causes a field to be included.
         """
-        class CustomSerializer(Serializer):
+        class CustomSerializer(ObjectSerializer):
             class Meta:
                 include = ('_hidden',)
 
@@ -167,7 +167,7 @@ class BasicSerializerTests(SerializationTestCase):
         """
         Both 'Meta.include' and 'Meta.exclude' may be set.
         """
-        class CustomSerializer(Serializer):
+        class CustomSerializer(ObjectSerializer):
             class Meta:
                 include = ('_hidden',)
                 exclude = ('b',)
@@ -184,7 +184,7 @@ class BasicSerializerTests(SerializationTestCase):
         """
         'Meta.fields' overrides both 'Meta.include' and 'Meta.exclude' if set.
         """
-        class CustomSerializer(Serializer):
+        class CustomSerializer(ObjectSerializer):
             class Meta:
                 include = ('_hidden',)
                 exclude = ('b',)
@@ -215,13 +215,13 @@ class SerializeAttributeTests(SerializationTestCase):
             'age': 42
         }
 
-        self.assertEquals(Serializer().serialize(self.obj), expected)
+        self.assertEquals(ObjectSerializer().serialize(self.obj), expected)
 
     def test_serialization_can_include_properties(self):
         """
         Object properties can be included as fields.
         """
-        class CustomSerializer(Serializer):
+        class CustomSerializer(ObjectSerializer):
             class Meta:
                 fields = ('full_name', 'age')
 
@@ -236,7 +236,7 @@ class SerializeAttributeTests(SerializationTestCase):
         """
         Object methods may be included as fields.
         """
-        class CustomSerializer(Serializer):
+        class CustomSerializer(ObjectSerializer):
             class Meta:
                 fields = ('full_name', 'is_child')
 
@@ -261,8 +261,8 @@ class SerializerFieldTests(SerializationTestCase):
         Setting explicit fields on a serializer replaces the default set of
         fields that would have been serialized.
         """
-        class CustomSerializer(Serializer):
-            full_name = Serializer()
+        class CustomSerializer(ObjectSerializer):
+            full_name = ObjectSerializer()
 
         expected = {
             'full_name': 'john doe',
@@ -276,8 +276,8 @@ class SerializerFieldTests(SerializationTestCase):
         have been explicitly included via a Serializer field declaration,
         and regular default object fields will be included.
         """
-        class CustomSerializer(Serializer):
-            full_name = Serializer()
+        class CustomSerializer(ObjectSerializer):
+            full_name = ObjectSerializer()
 
             class Meta:
                 include_default_fields = True
@@ -296,9 +296,9 @@ class SerializerFieldTests(SerializationTestCase):
         A serializer field can take a 'label' argument, which is used as the
         field key instead of the field's property name.
         """
-        class CustomSerializer(Serializer):
-            full_name = Serializer(label='Full name')
-            age = Serializer(label='Age')
+        class CustomSerializer(ObjectSerializer):
+            full_name = ObjectSerializer(label='Full name')
+            age = ObjectSerializer(label='Age')
 
             class Meta:
                 fields = ('full_name', 'age')
@@ -315,9 +315,9 @@ class SerializerFieldTests(SerializationTestCase):
         A serializer field can take a 'source' argument, which is used as the
         field key instead of the field's property name.
         """
-        class CustomSerializer(Serializer):
-            name = Serializer(source='full_name')
-            age = Serializer()
+        class CustomSerializer(ObjectSerializer):
+            name = ObjectSerializer(source='full_name')
+            age = ObjectSerializer()
 
             class Meta:
                 fields = ('name', 'age')
@@ -334,9 +334,9 @@ class SerializerFieldTests(SerializationTestCase):
         Setting source='*', means the complete object will be used when
         serializing that field.
         """
-        class CustomSerializer(Serializer):
-            full_name = Serializer(label='Full name')
-            details = Serializer(fields=('first_name', 'last_name'), label='Details',
+        class CustomSerializer(ObjectSerializer):
+            full_name = ObjectSerializer(label='Full name')
+            details = ObjectSerializer(fields=('first_name', 'last_name'), label='Details',
                                  source='*')
 
             class Meta:
@@ -357,15 +357,15 @@ class SerializerFieldTests(SerializationTestCase):
         A custom serializer can be used with source='*' as serialize the
         complete object within a field.
         """
-        class DetailsSerializer(Serializer):
-            first_name = Serializer(label='First name')
-            last_name = Serializer(label='Last name')
+        class DetailsSerializer(ObjectSerializer):
+            first_name = ObjectSerializer(label='First name')
+            last_name = ObjectSerializer(label='Last name')
 
             class Meta:
                 fields = ('first_name', 'last_name')
 
-        class CustomSerializer(Serializer):
-            full_name = Serializer(label='Full name')
+        class CustomSerializer(ObjectSerializer):
+            full_name = ObjectSerializer(label='Full name')
             details = DetailsSerializer(label='Details', source='*')
 
             class Meta:
@@ -386,10 +386,10 @@ class SerializerFieldTests(SerializationTestCase):
         A serializer field can take a 'serialize' argument, which is used to
         serialize the field value.
         """
-        class CustomSerializer(Serializer):
+        class CustomSerializer(ObjectSerializer):
             full_name = Field(label='Full name',
                               convert=lambda name: 'Mr ' + name.title())
-            age = Serializer(label='Age')
+            age = ObjectSerializer(label='Age')
 
             class Meta:
                 fields = ('full_name', 'age')
@@ -417,7 +417,7 @@ class SerializerFieldTests(SerializationTestCase):
         """
         Make sure ordering of serializer fields is preserved.
         """
-        class CustomSerializer(Serializer):
+        class CustomSerializer(ObjectSerializer):
             first_name = Field()
             full_name = Field()
             age = Field()
@@ -470,15 +470,15 @@ class NestedSerializationTests(SerializationTestCase):
             ]
         }
 
-        self.assertEquals(Serializer().serialize(self.obj), expected)
+        self.assertEquals(ObjectSerializer().serialize(self.obj), expected)
 
     def test_nested_serialization_with_args(self):
         """
         We can pass serializer options through to nested fields as usual.
         """
-        class PersonSerializer(Serializer):
+        class PersonSerializer(ObjectSerializer):
             full_name = Field()
-            siblings = Serializer(fields=('full_name',))
+            siblings = ObjectSerializer(fields=('full_name',))
 
         expected = {
             'full_name': 'john doe',
@@ -509,7 +509,7 @@ class NestedSerializationTests(SerializationTestCase):
             ]
         }
 
-        self.assertEquals(Serializer(depth=0).serialize(self.obj), expected)
+        self.assertEquals(ObjectSerializer(depth=0).serialize(self.obj), expected)
 
     def test_depth_one_serialization(self):
         """
@@ -535,7 +535,7 @@ class NestedSerializationTests(SerializationTestCase):
             ]
         }
 
-        self.assertEquals(Serializer(depth=1).serialize(self.obj), expected)
+        self.assertEquals(ObjectSerializer(depth=1).serialize(self.obj), expected)
 
 
 class RecursiveSerializationTests(SerializationTestCase):
@@ -560,7 +560,7 @@ class RecursiveSerializationTests(SerializationTestCase):
                     'father': 'john doe'
             }
         }
-        self.assertEquals(Serializer().serialize(self.obj), expected)
+        self.assertEquals(ObjectSerializer().serialize(self.obj), expected)
 
 
 ##### Simple models without relationships. #####

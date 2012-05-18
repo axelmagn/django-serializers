@@ -47,6 +47,9 @@ class Field(object):
             return [self.convert(item) for item in obj]
         return smart_unicode(obj)
 
+    def attributes(self):
+        return {}
+
 
 class ModelField(Field):
     def convert_field(self, obj, field_name):
