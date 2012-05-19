@@ -332,7 +332,9 @@ The default implementation returns an empty dictionary.
 
 ### Field
 
-The base class.  Converts objects into primative types, descending into dictionaries and lists as needed, and using string representations of objects that do not have a primative representation.
+The base class.  Converts objects into primative types, descending into
+dictionaries and lists as needed, and using string representations of objects
+that do not have a primative representation.
 
 ### ModelField
 
@@ -340,7 +342,9 @@ The base class for model fields.  Returns the field value as a primative type.
 
 ### RelatedField
 
-The base class for relational model fields.  You should not use this class directly, but you may subclass it and override `convert()` in order to create a custom relational field.
+The base class for relational model fields.  You should not use this class
+directly, but you may subclass it and override `convert()` in order to create a
+custom relational field.
 
 ### PrimaryKeyRelatedField
 
@@ -428,9 +432,12 @@ object will be serialized:
 
 ### format
 
-If specified, format gives the default format that should be used by the `serialize` function.  Options are `json`, `yaml`, `xml`, `csv`, `html`.
+If specified, format gives the default format that should be used by the
+`serialize` function.  Options are `json`, `yaml`, `xml`, `csv`, `html`.
 
-Specifying a `format` allows the serializer to be backwards compatible with Django's existing serializers.  (So for instance, you can use it with the `SERIALIZATION_MODULES` setting.)
+Specifying a `format` allows the serializer to be backwards compatible with
+Django's existing serializers.  (So for instance, you can use it with the
+`SERIALIZATION_MODULES` setting.)
 
 Serializer methods
 ==================
@@ -441,7 +448,9 @@ The main entry point into serializers.
 
 `format` should be a string representing the desired encoding.  Valid choices
 are `json`, `yaml`, `xml`, `csv` and `html`.
-If format is left as `None`, and no default format for the serializer is given by the `format` option, then the object will be serialized into a python object in the desired structure, but will not be rendered into a final output format.
+If format is left as `None`, and no default format for the serializer is given
+by the `format` option, then the object will be serialized into a python object
+in the desired structure, but will not be rendered into a final output format.
 
 `opts` may be any additional options specific to the encoding.
 
@@ -453,17 +462,24 @@ or bytestream.
 
 ### convert(self, obj)
 
-Converts the given object or container into a primative representation which can be directly rendered.
+Converts the given object or container into a primative representation which
+can be directly rendered.
 
-The default implementation will descend into dictionary and iterable containers, and call `convert_object` on any objects found inside those.
+The default implementation will descend into dictionary and iterable
+containers, and call `convert_object` on any objects found inside those.
 
-You won't typically need to override this, unless you want to heavily customise how objects are serialized, (For example if you want to wrap your serialization output in some container data) or want to write a custom `Serializer`.  (For example if you're writing a  serializer which takes dictionary-like objects, and uses the keys as fields.)
+You won't typically need to override this, unless you want to heavily customise
+how objects are serialized, (For example if you want to wrap your serialization
+output in some container data) or want to write a custom `Serializer`.
+(For example if you're writing a  serializer which takes dictionary-like
+objects, and uses the keys as fields.)
 
 ### convert_object(self, obj)
 
 Converts the given object into a primative representation which can be directly rendered.
 This method is called by `convert()` for each object it finds that needs serializing.
-You won't typically need to override this method, but you will want to call into it, if you're overriding `convert`.
+You won't typically need to override this method, but you will want to call
+into it, if you're overriding `convert`.
 
 ### render(self, data, stream, format, **opts)
 
@@ -476,7 +492,8 @@ Returns a native python object representing the key for the given field name.
 By default this will be the serializer's `label` if it has one specified,
 or the `field_name` string otherwise.
 
-Override this to provide custom behaviour, for example to represent keys using javascipt style upperCasedNames.
+Override this to provide custom behaviour, for example to represent keys using
+javascipt style upperCasedNames.
 
 ### get_default_field_names(self, obj)
 
@@ -486,23 +503,27 @@ be the set of fields names that will be serialized.
 
 ### get_flat_serializer(self, obj, field_name)
 
-Return a default field instance for the given field, if the maximum depth has been reached, or recursion has occurred.
+Return a default field instance for the given field, if the maximum depth has
+been reached, or recursion has occurred.
 
 ### get_nested_serializer(self, obj, field_name)
 
-Return a default field instance for the given field, if the maximum depth has not yet been reached and recursion has not occurred.
+Return a default field instance for the given field, if the maximum depth has
+not yet been reached and recursion has not occurred.
 
 # Available serializers
 
 
 ## Serializer
 
-The `Serializer` class may not be used directly, but may be overridden if you want to write a custom serializer.
+The `Serializer` class may not be used directly, but may be overridden if you
+want to write a custom serializer.
 
 ## ObjectSerializer
 
 `ObjectSerializer` may be used to serialize arbitrary python objects.
-The default set of fields will be all the non-private instance attributes on each object.
+The default set of fields will be all the non-private instance attributes on
+each object.
 
 `ObjectSerializer` supports all the options for Serializer, as well as
 these additional options.
@@ -533,7 +554,8 @@ fields.
 
 ### non_model_field
 
-The default field class that should be used for serializing attributes on the model instance that are not model fields.  (For instance `get_absolute_url`.)
+The default field class that should be used for serializing attributes on the
+model instance that are not model fields.  (For instance `get_absolute_url`.)
 
 ### related_field
 
@@ -566,11 +588,17 @@ order to correctly deal with it's particular requirements.
 
 ## DumpDataSerializer
 
-`DumpDataSerializer` may be used to serialize Django model instances and querysets into the existing `dumpdata` format.
+`DumpDataSerializer` may be used to serialize Django model instances and
+querysets into the existing `dumpdata` format.
 
 
 
 # Changelog
+
+### 0.5.0
+
+* Backwards compatible with existing serialization and passing Django's
+serializer tests.
 
 ### 0.4.0
 
