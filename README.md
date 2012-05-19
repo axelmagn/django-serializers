@@ -15,34 +15,35 @@ whilst also being easy to override and customise.
 
 Serializers are declared in a simlar format to `Form` and `Model` declarations,
 with an inner `Meta` class providing general options, and optionally with a set
-of `Field` classes being declaring inside the `Serializer` class.
-
-The `Serializer` class itself also implements the `Field` interface, meaning we
-can represent serialization of nested instances in various different ways.
+of `Field` and/or `Serializer` classes being declaring inside the parent `Serializer` class.
 
 Features:
 
-* Supports serialization of arbitrary python objects using the `ObjectsSerializer` class.
+* Supports serialization of arbitrary python objects using the `ObjectSerializer` class.
 * Supports serialization of models and querysets using `ModelSerializer`.
 * Supports serialization to the existing dumpdata format, using `DumpDataSerializer`.
-* Backwards compatible with the existing serialization API.
-* DumpData serializers pass Django's existing serialization API test suite.
 * Supports flat serialization, and nested serialization (to arbitrary depth), and handles recursive relationships.
 * Allows for both implicit fields, which are determined at the point of serialization, and explicit fields, which are declared on the serializer class.
 * The declaration of the serialization structure is handled independantly of the final encoding used (eg 'json', 'xml' etc…).  This is desirable for eg. APIs which want to support a given dataset being output to a number of different formats.
-* Currently supports 'json', 'yaml', 'xml', 'csv'.
+* Currently supports 'json', 'yaml', 'xml', 'csv', 'html'.
 * Supports both fields that corrospond to Django model fields, and fields that corrospond to other attributes, such as `get_absolute_url`.
 * Supports relations serializing to primary keys, natural keys, or custom implementations.
 * Supports streaming output, rather than loading all objects into memory.
 * Hooks throughout to allow for complete customization.  Eg. Writing key names using javascript style camel casing.
 * Simple, clean API.
 * Comprehensive test suite.
+* Backwards compatible with the existing `dumpdata` serialization API.
+* Passes Django's existing serialization test suite.
 
 Notes:
 
 * `django-serializers` currently does not address deserialization.  Replacing
 the existing `loaddata` deserialization with a more flexible deserialization
-API is considered out of scope, until the serialization API has first been adequatly addressed.
+API is considered out of scope until the serialization API has first been adequatly addressed.
+
+# Requirements
+
+Currently requires Django >= 1.4
 
 # Installation
 
@@ -359,7 +360,7 @@ inner class, or set when instatiating the `Serializer` object.
 
 For example, using the `Meta` inner class:
 
-    class PersonSerializer(Serializer):
+    class PersonSerializer(ModelSerializer):
         class Meta:
             fields = ('full_name', 'age')
 
@@ -367,7 +368,7 @@ For example, using the `Meta` inner class:
 
 And the same, using arguments when instantiating the serializer.
 
-    serializer = Serializer(fields=('full_name', 'age'))
+    serializer = ModelSerializer(fields=('full_name', 'age'))
 
 The serializer class is a subclass of `Field`, so also supports the `Field` API.
 
@@ -377,7 +378,7 @@ A list of field names that should be included in the output.  This could
 include properties, class attributes, or any other attribute on the object that
 would not otherwise be serialized.
 
-### exclude
+### exclude
 
 A list of field names that should not be included in the output.
 

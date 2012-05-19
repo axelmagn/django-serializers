@@ -3,6 +3,7 @@ from django.utils import simplejson as json
 from django.utils.encoding import smart_unicode
 from django.utils.html import urlize
 from django.utils.xmlutils import SimplerXMLGenerator
+from serializers.fields import NaturalKeyRelatedField
 from serializers.utils import SafeDumper, DictWriter, DjangoJSONEncoder
 import StringIO
 try:
@@ -117,10 +118,16 @@ class DumpDataXMLRenderer(BaseRenderer):
         xml.endDocument()
 
     def model_to_xml(self, xml, data):
-        pk = unicode(data['pk'])
+        pk = data['pk']
         model = data['model']
         fields = data['fields']
-        xml.startElement('object', {'pk': pk, 'model': model})
+
+        attrs = {}
+        if pk is not None:
+            attrs['pk'] = unicode(pk)
+        attrs['model'] = model
+
+        xml.startElement('object', attrs)
 
         # Due to implmentation details, the existing xml dumpdata format
         # renders ordered fields, whilst json and yaml render unordered
@@ -135,7 +142,9 @@ class DumpDataXMLRenderer(BaseRenderer):
             attrs.update(field.attributes())
             xml.startElement('field', attrs)
 
-            if attrs.get('rel', None) == 'ManyToManyRel':
+            if value is not None and isinstance(field, NaturalKeyRelatedField):
+                self.handle_natural_key(xml, value)
+            elif attrs.get('rel', None) == 'ManyToManyRel':
                 self.handle_many_to_many(xml, value)
             elif isinstance(value, (datetime.datetime, datetime.date, datetime.time)):
                 self.handle_datetimes(xml, value)
@@ -146,6 +155,10 @@ class DumpDataXMLRenderer(BaseRenderer):
 
             xml.endElement('field')
         xml.endElement('object')
+
+    def handle_natural_key(self, xml, value):
+        for item in value:
+            xml.addQuickElement('natural', contents=item)
 
     def handle_many_to_many(self, xml, value):
         for item in value:

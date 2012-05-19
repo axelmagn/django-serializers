@@ -583,10 +583,22 @@ class TestSimpleModel(SerializationTestCase):
             finish_time=datetime.datetime(year=2012, month=4, day=30, hour=12, minute=25)
         )
 
-    def test_simple_model(self):
+    def test_simple_dumpdata_json(self):
         self.assertEquals(
             self.dumpdata.serialize(RaceEntry.objects.all(), 'json'),
             serializers.serialize('json', RaceEntry.objects.all())
+        )
+
+    def test_simple_dumpdata_yaml(self):
+        self.assertEquals(
+            self.dumpdata.serialize(RaceEntry.objects.all(), 'yaml'),
+            serializers.serialize('yaml', RaceEntry.objects.all())
+        )
+
+    def test_simple_dumpdata_xml(self):
+        self.assertEquals(
+            self.dumpdata.serialize(RaceEntry.objects.all(), 'xml'),
+            serializers.serialize('xml', RaceEntry.objects.all())
         )
 
     def test_csv(self):
@@ -597,6 +609,36 @@ class TestSimpleModel(SerializationTestCase):
         self.assertEquals(
             self.serializer.serialize(RaceEntry.objects.all(), 'csv'),
             expected
+        )
+
+
+class TestNullPKModel(SerializationTestCase):
+    def setUp(self):
+        self.dumpdata = DumpDataSerializer()
+        self.serializer = ModelSerializer(depth=0)
+        self.objs = [RaceEntry(
+            name='John doe',
+            runner_number=6014,
+            start_time=datetime.datetime(year=2012, month=4, day=30, hour=9),
+            finish_time=datetime.datetime(year=2012, month=4, day=30, hour=12, minute=25)
+        )]
+
+    def test_null_pk_dumpdata_json(self):
+        self.assertEquals(
+            self.dumpdata.serialize(self.objs, 'json'),
+            serializers.serialize('json', self.objs)
+        )
+
+    def test_null_pk_dumpdata_yaml(self):
+        self.assertEquals(
+            self.dumpdata.serialize(self.objs, 'yaml'),
+            serializers.serialize('yaml', self.objs)
+        )
+
+    def test_null_pk_dumpdata_xml(self):
+        self.assertEquals(
+            self.dumpdata.serialize(self.objs, 'xml'),
+            serializers.serialize('xml', self.objs)
         )
 
 
@@ -682,7 +724,7 @@ class TestNaturalKey(SerializationTestCase):
             name='frogger'
         )
 
-    def test_naturalkey_dumpdata(self):
+    def test_naturalkey_dumpdata_json(self):
         """
         Ensure that we can replicate the existing dumpdata
         'use_natural_keys' behaviour.
@@ -690,6 +732,26 @@ class TestNaturalKey(SerializationTestCase):
         self.assertEquals(
             self.dumpdata.serialize(Pet.objects.all(), 'json', use_natural_keys=True),
             serializers.serialize('json', Pet.objects.all(), use_natural_keys=True)
+        )
+
+    def test_naturalkey_dumpdata_yaml(self):
+        """
+        Ensure that we can replicate the existing dumpdata
+        'use_natural_keys' behaviour.
+        """
+        self.assertEquals(
+            self.dumpdata.serialize(Pet.objects.all(), 'yaml', use_natural_keys=True),
+            serializers.serialize('yaml', Pet.objects.all(), use_natural_keys=True)
+        )
+
+    def test_naturalkey_dumpdata_xml(self):
+        """
+        Ensure that we can replicate the existing dumpdata
+        'use_natural_keys' behaviour.
+        """
+        self.assertEquals(
+            self.dumpdata.serialize(Pet.objects.all(), 'xml', use_natural_keys=True),
+            serializers.serialize('xml', Pet.objects.all(), use_natural_keys=True)
         )
 
     def test_naturalkey(self):
