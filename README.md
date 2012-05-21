@@ -234,13 +234,7 @@ one to one relationships, plus reverse relationships:
         'date_of_birth': datetime.datetime(day=5, month=4, year=1979)
     }
 
-The existing dumpdata format is (mostly) replicated, and gives a good example
-of how to declare custom serialization styles:
-
-    >>> class DumpDataSerializer(ModelSerializer):
-    >>>     pk = ModelField()
-    >>>     model = ModelNameField()
-    >>>     fields = ModelSerializer(source='*', exclude='id', depth=0)
+**TODO:**  Needs more ModelSerializer examples.
 
 
 # Field reference
@@ -555,10 +549,14 @@ these additional options.
 The default field class that should be used for serializing non-related model
 fields.
 
+The default is `ModelField`.
+
 ### non_model_field
 
 The default field class that should be used for serializing attributes on the
 model instance that are not model fields.  (For instance `get_absolute_url`.)
+
+The default is `Field`.
 
 ### related_field
 
@@ -568,14 +566,14 @@ fields once the maximum depth has been reached, or recursion occurs.
 `related_field` can be applied to `OneToOneField`, `ForeignKey`,
 `ManyToManyField`, or any of their corrosponding reverse managers.
 
-Default is `PrimaryKeyRelatedField`.
+The default is `PrimaryKeyRelatedField`.
 
 ### nested_related_field
 
 The default field class that should be used for serializing related model
 fields before the maximum depth has been reached, or recursion occurs.
 
-Default is `None`, which indicates that the serializer's own class should
+The default is `None`, which indicates that the serializer's own class should
 be reused for nested relations.
 
 ### model_field_types
