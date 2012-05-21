@@ -41,6 +41,9 @@ Notes:
 the existing `loaddata` deserialization with a more flexible deserialization
 API is considered out of scope until the serialization API has first been adequatly addressed.
 
+For an example of using `django-serializers` to create Web APIs,
+please see [django-auto-api][2].
+
 # Requirements
 
 Currently requires Django >= 1.4
@@ -667,3 +670,4 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 [1]: http://twitter.com/_tomchristie
+[2]: https://github.com/tomchristie/django-auto-api
