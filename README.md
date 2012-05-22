@@ -174,7 +174,7 @@ django-serializers also handles nested serialization of objects:
     >>> emily = Person('emily', 'doe', 37)
     >>> jane = Person('jane', 'doe', 44, partner=fred)
     >>> john = Person('john', 'doe', 42, siblings=[jane, emily])
-    >>> Serializer().serialize(john)
+    >>> Serializer(nested=True).serialize(john)
     {
         'first_name': 'john',
         'last_name': 'doe',
@@ -200,7 +200,7 @@ django-serializers also handles nested serialization of objects:
 
 And handles flat serialization of objects:
 
-    >>> Serializer(depth=0).serialize(john)
+    >>> Serializer().serialize(john)
     {
         'first_name': 'john',
         'last_name': 'doe',
@@ -223,7 +223,7 @@ one to one relationships, plus reverse relationships:
     >>>     country_of_birth = models.CharField(max_length=100)
     >>>     date_of_birth = models.DateTimeField()
     >>>
-    >>> ModelSerializer().serialize(profile)
+    >>> ModelSerializer(nested=True).serialize(profile)
     {
         'id': 1,
         'user': {
@@ -388,19 +388,19 @@ A list of field names that should not be included in the output.
 The complete list of field names that should be serialized.  If provided
 `fields` will override `include` and `exclude`.
 
-### depth
+### nested
 
-The `depth` argument controls how nested objects should be serialized.
-The default is `None`, which means serialization should descend into nested
-objects.
+The `nested` argument controls if the serialization style should be flat
+or nested.
 
-If `depth` is set to an integer value, serialization will descend that many
+The default is `False`, which means that a flat serialization style will
+be used.  If `nested` is set to `True`, serialization will descend into
+any nested objects, and will only fall back to using a flat serialization
+if recursion occurs.
+
+If `nested` is set to an integer value, serialization will descend that many
 levels into nested objects, before starting serialize nested models with a
-"flat" value.
-
-For example, setting `depth=0` ensures that only the fields of the top level
-object will be serialized, and any nested objects will simply be serialized
-as simple string representations of those objects.
+flat value.
 
 ### include_default_fields
 

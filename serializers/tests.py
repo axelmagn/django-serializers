@@ -469,8 +469,7 @@ class NestedSerializationTests(SerializationTestCase):
                 }
             ]
         }
-
-        self.assertEquals(ObjectSerializer().serialize(self.obj), expected)
+        self.assertEquals(ObjectSerializer(nested=True).serialize(self.obj), expected)
 
     def test_nested_serialization_with_args(self):
         """
@@ -478,7 +477,7 @@ class NestedSerializationTests(SerializationTestCase):
         """
         class PersonSerializer(ObjectSerializer):
             full_name = Field()
-            siblings = ObjectSerializer(fields=('full_name',))
+            siblings = ObjectSerializer(fields=('full_name',), nested=True)
 
             class Meta:
                 include_default_fields = False
@@ -499,7 +498,7 @@ class NestedSerializationTests(SerializationTestCase):
 
     def test_depth_zero_serialization(self):
         """
-        If 'depth' equals 0 then nested objects should be serialized as
+        If 'nested' equals 0 then nested objects should be serialized as
         flat values.
         """
         expected = {
@@ -512,11 +511,11 @@ class NestedSerializationTests(SerializationTestCase):
             ]
         }
 
-        self.assertEquals(ObjectSerializer(depth=0).serialize(self.obj), expected)
+        self.assertEquals(ObjectSerializer(nested=0).serialize(self.obj), expected)
 
     def test_depth_one_serialization(self):
         """
-        If 'depth' is greater than 0 then nested objects should be serialized
+        If 'nested' is greater than 0 then nested objects should be serialized
         as flat values once the specified depth has been reached.
         """
         expected = {
@@ -538,7 +537,7 @@ class NestedSerializationTests(SerializationTestCase):
             ]
         }
 
-        self.assertEquals(ObjectSerializer(depth=1).serialize(self.obj), expected)
+        self.assertEquals(ObjectSerializer(nested=1).serialize(self.obj), expected)
 
 
 class RecursiveSerializationTests(SerializationTestCase):
@@ -563,7 +562,7 @@ class RecursiveSerializationTests(SerializationTestCase):
                     'father': 'john doe'
             }
         }
-        self.assertEquals(ObjectSerializer().serialize(self.obj), expected)
+        self.assertEquals(ObjectSerializer(nested=True).serialize(self.obj), expected)
 
 
 ##### Simple models without relationships. #####
@@ -578,7 +577,7 @@ class RaceEntry(models.Model):
 class TestSimpleModel(SerializationTestCase):
     def setUp(self):
         self.dumpdata = DumpDataSerializer()
-        self.serializer = ModelSerializer(depth=0)
+        self.serializer = ModelSerializer()
         RaceEntry.objects.create(
             name='John doe',
             runner_number=6014,
@@ -821,8 +820,8 @@ class TestOneToOneModel(SerializationTestCase):
     """
     def setUp(self):
         self.dumpdata = DumpDataSerializer()
-        self.nested_model = ModelSerializer()
-        self.flat_model = ModelSerializer(depth=0)
+        self.nested_model = ModelSerializer(nested=True)
+        self.flat_model = ModelSerializer()
         user = User.objects.create(email='joe@example.com')
         Profile.objects.create(
             user=user,
@@ -886,8 +885,8 @@ class TestReverseOneToOneModel(SerializationTestCase):
     """
 
     def setUp(self):
-        self.nested_model = ModelSerializer(include=('profile',))
-        self.flat_model = ModelSerializer(depth=0, include=('profile',))
+        self.nested_model = ModelSerializer(include=('profile',), nested=True)
+        self.flat_model = ModelSerializer(include=('profile',))
         user = User.objects.create(email='joe@example.com')
         Profile.objects.create(
             user=user,
@@ -939,8 +938,8 @@ class TestFKModel(SerializationTestCase):
     """
     def setUp(self):
         self.dumpdata = DumpDataSerializer()
-        self.nested_model = ModelSerializer()
-        self.flat_model = ModelSerializer(depth=0)
+        self.nested_model = ModelSerializer(nested=True)
+        self.flat_model = ModelSerializer()
         self.owner = Owner.objects.create(
             email='tom@example.com'
         )
@@ -1030,7 +1029,7 @@ class TestFKModel(SerializationTestCase):
                 }
             ]
         }
-        serializer = ModelSerializer(include=('vehicles',))
+        serializer = ModelSerializer(include=('vehicles',), nested=True)
         self.assertEquals(
             serializer.serialize(Owner.objects.get(id=1)),
             expected
@@ -1053,8 +1052,8 @@ class TestManyToManyModel(SerializationTestCase):
     """
     def setUp(self):
         self.dumpdata = DumpDataSerializer()
-        self.nested_model = ModelSerializer()
-        self.flat_model = ModelSerializer(depth=0)
+        self.nested_model = ModelSerializer(nested=True)
+        self.flat_model = ModelSerializer()
         self.lucy = Author.objects.create(
             name='Lucy Black'
         )

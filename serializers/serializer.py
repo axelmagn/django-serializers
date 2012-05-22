@@ -3,7 +3,6 @@ from django.db.models.fields import FieldDoesNotExist
 from django.utils.datastructures import SortedDict
 import copy
 import datetime
-import inspect
 import types
 from serializers.renderers import (
     JSONRenderer,
@@ -14,7 +13,11 @@ from serializers.renderers import (
     DumpDataXMLRenderer
 )
 from serializers.fields import *
-from serializers.utils import DictWithMetadata, SortedDictWithMetadata
+from serializers.utils import (
+    DictWithMetadata,
+    SortedDictWithMetadata,
+    is_simple_callable
+)
 from StringIO import StringIO
 
 
@@ -29,16 +32,6 @@ def _is_protected_type(obj):
        datetime.datetime, datetime.date, datetime.time,
        float, Decimal,
        basestring)
-    )
-
-
-def _is_simple_callable(obj):
-    """
-    True if the object is a callable that takes no arguments.
-    """
-    return (
-        (inspect.isfunction(obj) and not inspect.getargspec(obj)[0]) or
-        (inspect.ismethod(obj) and len(inspect.getargspec(obj)[0]) <= 1)
     )
 
 
@@ -85,7 +78,7 @@ def _get_option(name, kwargs, meta, default):
 class SerializerOptions(object):
     def __init__(self, meta, **kwargs):
         self.format = _get_option('format', kwargs, meta, None)
-        self.depth = _get_option('depth', kwargs, meta, None)
+        self.nested = _get_option('nested', kwargs, meta, False)
         self.include = _get_option('include', kwargs, meta, ())
         self.exclude = _get_option('exclude', kwargs, meta, ())
         self.fields = _get_option('fields', kwargs, meta, ())
@@ -181,9 +174,9 @@ class BaseSerializer(Field):
         If a field does not have an explicitly declared serializer, return the
         default serializer instance that should be used for that field.
         """
-        if self.opts.depth is not None and self.opts.depth <= 0:
-            return self.get_flat_serializer(obj, field_name)
-        return self.get_nested_serializer(obj, field_name)
+        if self.opts.nested:
+            return self.get_nested_serializer(obj, field_name)
+        return self.get_flat_serializer(obj, field_name)
 
     def get_field_key(self, obj, field_name, field):
         """
@@ -204,8 +197,10 @@ class BaseSerializer(Field):
         self.orig_field_name = field_name
 
         self.stack = parent.stack[:]
-        if parent.opts.depth is not None:
-            self.opts.depth = parent.opts.depth - 1
+        if parent.opts.nested and not isinstance(parent.opts.nested, bool):
+            self.opts.nested = parent.opts.nested - 1
+        else:
+            self.opts.nested = parent.opts.nested
 
         return super(BaseSerializer, self)._convert_field(obj, field_name, parent)
 
@@ -240,7 +235,7 @@ class BaseSerializer(Field):
         """
         if _is_protected_type(obj):
             return obj
-        elif _is_simple_callable(obj):
+        elif is_simple_callable(obj):
             return self.convert(obj())
         elif isinstance(obj, dict):
             return dict([(key, self.convert(val))
@@ -379,7 +374,6 @@ class DumpDataFields(ModelSerializer):
     _use_sorted_dict = False
 
     class Meta:
-        depth = 0
         model_field_types = ('local_fields', 'many_to_many')
 
 

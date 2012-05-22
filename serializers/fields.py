@@ -1,5 +1,6 @@
 from django.utils.encoding import is_protected_type, smart_unicode
 from django.db.models.related import RelatedObject
+from serializers.utils import is_simple_callable
 
 
 class Field(object):
@@ -40,6 +41,8 @@ class Field(object):
         """
         if is_protected_type(obj):
             return obj
+        elif is_simple_callable(obj):
+            return self.convert(obj())
         elif isinstance(obj, dict):
             return dict([(key, self.convert(val))
                          for (key, val) in obj.items()])
