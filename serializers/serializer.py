@@ -18,6 +18,30 @@ from serializers.utils import DictWithMetadata, SortedDictWithMetadata
 from StringIO import StringIO
 
 
+def _is_protected_type(obj):
+    """
+    True if the object is a native datatype that does not need to
+    be serialized further.
+    """
+    return isinstance(obj, (
+        types.NoneType,
+       int, long,
+       datetime.datetime, datetime.date, datetime.time,
+       float, Decimal,
+       basestring)
+    )
+
+
+def _is_simple_callable(obj):
+    """
+    True if the object is a callable that takes no arguments.
+    """
+    return (
+        (inspect.isfunction(obj) and not inspect.getargspec(obj)[0]) or
+        (inspect.ismethod(obj) and len(inspect.getargspec(obj)[0]) <= 1)
+    )
+
+
 def _remove_items(seq, exclude):
     """
     Remove duplicates and items in 'exclude' from list (preserving order).
@@ -128,28 +152,6 @@ class BaseSerializer(Field):
     def get_default_field_names(self, obj):
         raise NotImplementedError()
 
-    def _is_protected_type(self, obj):
-        """
-        True if the object is a native datatype that does not need to
-        be serialized further.
-        """
-        return isinstance(obj, (
-            types.NoneType,
-            int, long,
-            datetime.datetime, datetime.date, datetime.time,
-            float, Decimal,
-            basestring)
-        )
-
-    def _is_simple_callable(self, obj):
-        """
-        True if the object is a callable that takes no arguments.
-        """
-        return (
-            (inspect.isfunction(obj) and not inspect.getargspec(obj)[0]) or
-            (inspect.ismethod(obj) and len(inspect.getargspec(obj)[0]) <= 1)
-        )
-
     def _get_field_names(self, obj):
         """
         Given an object, return the set of field names to serialize.
@@ -233,9 +235,12 @@ class BaseSerializer(Field):
             yield self.convert(item)
 
     def convert(self, obj):
-        if self._is_protected_type(obj):
+        """
+        First stage of serialization.  Objects -> Primatives.
+        """
+        if _is_protected_type(obj):
             return obj
-        elif self._is_simple_callable(obj):
+        elif _is_simple_callable(obj):
             return self.convert(obj())
         elif isinstance(obj, dict):
             return dict([(key, self.convert(val))
@@ -245,10 +250,17 @@ class BaseSerializer(Field):
         return self.convert_object(obj)
 
     def render(self, data, stream, format, **opts):
+        """
+        Second stage of serialization.  Primatives -> Bytestream.
+        """
         renderer = self.renderer_classes[format]()
         return renderer.render(data, stream, **opts)
 
     def serialize(self, obj, format=None, **opts):
+        """
+        Perform serialization of object into bytestream.
+        First converts the objects into primatives, then renders to bytestream.
+        """
         self.root = None
         self.stack = []
 
@@ -265,7 +277,7 @@ class BaseSerializer(Field):
             self.value = data
         return self.value
 
-    def getvalue(self):
+    def getvalue(self):  # For backwards compatability with existing API.
         return self.value
 
 
