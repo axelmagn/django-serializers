@@ -404,28 +404,25 @@ as simple string representations of those objects.
 
 ### include_default_fields
 
-The default set of fields on an object are the attributes that will be
-serialized if no serializer fields are explicitly specified on the class.
+By default any default fields on an object will be serialized, along with
+any explicity declared fields.
 
-When serializer fields *are* explicitly specified, these will normally be
-used instead of the default fields.
+If `include_default_fields` is set to `False`, then *only* the explicitly
+specified serializer fields will be used.
 
-If `include_default_fields` is set to `True`, then *both* the explicitly
-specified serializer fields *and* the object's default fields will be used.
-
-For example, in this case, only the 'full_name' field will be serialized:
+For example, in this case, both the 'full_name' field, and any instance
+attributes on the object will be serialized:
 
     class CustomSerializer(Serializer):
         full_name = Serializer(label='Full name')
 
-In this case, both the 'full_name' field, and any instance attributes on the
-object will be serialized:
+In this case, only the 'full_name' field will be serialized:
 
     class CustomSerializer(Serializer):
         full_name = Serializer(label='Full name')
-        
+
         class Meta:
-            include_default_fields = True
+            include_default_fields = False
 
 ### format
 

@@ -90,7 +90,7 @@ class SerializerOptions(object):
         self.exclude = _get_option('exclude', kwargs, meta, ())
         self.fields = _get_option('fields', kwargs, meta, ())
         self.include_default_fields = _get_option(
-            'include_default_fields', kwargs, meta, False
+            'include_default_fields', kwargs, meta, True
         )
 
 
@@ -398,6 +398,9 @@ class DumpDataSerializer(ModelSerializer):
     pk = Field()
     model = ModelNameField()
     # fields = DumpDataFields(source='*') - Actually set in serialize
+
+    class Meta:
+        include_default_fields = False
 
     def serialize(self, obj, format=None, **opts):
         if opts.get('use_natural_keys', None):

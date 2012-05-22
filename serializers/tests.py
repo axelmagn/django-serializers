@@ -258,11 +258,14 @@ class SerializerFieldTests(SerializationTestCase):
 
     def test_explicit_fields_replace_defaults(self):
         """
-        Setting explicit fields on a serializer replaces the default set of
-        fields that would have been serialized.
+        Setting include_default_fields to `False` fields on a serializer
+        ensures that only explicitly declared fields are used.
         """
         class CustomSerializer(ObjectSerializer):
             full_name = ObjectSerializer()
+
+            class Meta:
+                include_default_fields = False
 
         expected = {
             'full_name': 'john doe',
@@ -272,15 +275,12 @@ class SerializerFieldTests(SerializationTestCase):
 
     def test_include_default_fields(self):
         """
-        If `include_default_fields` is set to `True`, both fields which
-        have been explicitly included via a Serializer field declaration,
-        and regular default object fields will be included.
+        By default, both fields which have been explicitly included via a
+        Serializer field declaration, and regular default object fields will
+        be included.
         """
         class CustomSerializer(ObjectSerializer):
             full_name = ObjectSerializer()
-
-            class Meta:
-                include_default_fields = True
 
         expected = {
             'full_name': 'john doe',
@@ -479,6 +479,9 @@ class NestedSerializationTests(SerializationTestCase):
         class PersonSerializer(ObjectSerializer):
             full_name = Field()
             siblings = ObjectSerializer(fields=('full_name',))
+
+            class Meta:
+                include_default_fields = False
 
         expected = {
             'full_name': 'john doe',
