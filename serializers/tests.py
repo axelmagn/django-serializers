@@ -310,76 +310,57 @@ class SerializerFieldTests(SerializationTestCase):
 
         self.assertEquals(CustomSerializer().serialize(self.obj), expected)
 
-    def test_field_source(self):
-        """
-        A serializer field can take a 'source' argument, which is used as the
-        field key instead of the field's property name.
-        """
-        class CustomSerializer(ObjectSerializer):
-            name = ObjectSerializer(source='full_name')
-            age = ObjectSerializer()
+    # def test_is_root(self):
+    #     """
+    #     Setting source='*', means the complete object will be used when
+    #     serializing that field.
+    #     """
+    #     class CustomSerializer(ObjectSerializer):
+    #         full_name = ObjectSerializer(label='Full name')
+    #         details = ObjectSerializer(fields=('first_name', 'last_name'), label='Details',
+    #                              source='*')
 
-            class Meta:
-                fields = ('name', 'age')
+    #         class Meta:
+    #             fields = ('full_name', 'details')
 
-        expected = {
-            'name': 'john doe',
-            'age': 42
-        }
+    #     expected = {
+    #         'Full name': 'john doe',
+    #         'Details': {
+    #             'first_name': 'john',
+    #             'last_name': 'doe'
+    #         }
+    #     }
 
-        self.assertEquals(CustomSerializer().serialize(self.obj), expected)
+    #     self.assertEquals(CustomSerializer().serialize(self.obj), expected)
 
-    def test_source_all(self):
-        """
-        Setting source='*', means the complete object will be used when
-        serializing that field.
-        """
-        class CustomSerializer(ObjectSerializer):
-            full_name = ObjectSerializer(label='Full name')
-            details = ObjectSerializer(fields=('first_name', 'last_name'), label='Details',
-                                 source='*')
+    # def test_source_all_with_custom_serializer(self):
+    #     """
+    #     A custom serializer can be used with source='*' as serialize the
+    #     complete object within a field.
+    #     """
+    #     class DetailsSerializer(ObjectSerializer):
+    #         first_name = ObjectSerializer(label='First name')
+    #         last_name = ObjectSerializer(label='Last name')
 
-            class Meta:
-                fields = ('full_name', 'details')
+    #         class Meta:
+    #             fields = ('first_name', 'last_name')
 
-        expected = {
-            'Full name': 'john doe',
-            'Details': {
-                'first_name': 'john',
-                'last_name': 'doe'
-            }
-        }
+    #     class CustomSerializer(ObjectSerializer):
+    #         full_name = ObjectSerializer(label='Full name')
+    #         details = DetailsSerializer(label='Details', source='*')
 
-        self.assertEquals(CustomSerializer().serialize(self.obj), expected)
+    #         class Meta:
+    #             fields = ('full_name', 'details')
 
-    def test_source_all_with_custom_serializer(self):
-        """
-        A custom serializer can be used with source='*' as serialize the
-        complete object within a field.
-        """
-        class DetailsSerializer(ObjectSerializer):
-            first_name = ObjectSerializer(label='First name')
-            last_name = ObjectSerializer(label='Last name')
+    #     expected = {
+    #         'Full name': 'john doe',
+    #         'Details': {
+    #             'First name': 'john',
+    #             'Last name': 'doe'
+    #         }
+    #     }
 
-            class Meta:
-                fields = ('first_name', 'last_name')
-
-        class CustomSerializer(ObjectSerializer):
-            full_name = ObjectSerializer(label='Full name')
-            details = DetailsSerializer(label='Details', source='*')
-
-            class Meta:
-                fields = ('full_name', 'details')
-
-        expected = {
-            'Full name': 'john doe',
-            'Details': {
-                'First name': 'john',
-                'Last name': 'doe'
-            }
-        }
-
-        self.assertEquals(CustomSerializer().serialize(self.obj), expected)
+    #     self.assertEquals(CustomSerializer().serialize(self.obj), expected)
 
     def test_field_func(self):
         """

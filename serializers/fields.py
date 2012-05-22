@@ -6,8 +6,7 @@ from serializers.utils import is_simple_callable
 class Field(object):
     creation_counter = 0
 
-    def __init__(self, source=None, label=None, convert=None):
-        self.source = source
+    def __init__(self, label=None, convert=None):
         self.label = label
         if convert:
             self.convert = convert
@@ -19,14 +18,10 @@ class Field(object):
         The entry point into a field, as called by it's parent serializer.
         """
         self.obj = obj
+        self.field_name = field_name
         self.parent = parent
         self.root = parent.root or parent
-
-        if self.source == '*':
-            return self.convert(obj)
-
-        self.field_name = self.source or field_name
-        return self.convert_field(obj, self.field_name)
+        return self.convert_field(obj, field_name)
 
     def convert_field(self, obj, field_name):
         """

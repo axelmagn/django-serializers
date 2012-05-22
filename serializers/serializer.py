@@ -85,6 +85,7 @@ class SerializerOptions(object):
         self.include_default_fields = _get_option(
             'include_default_fields', kwargs, meta, True
         )
+        self.is_root = _get_option('is_root', kwargs, meta, False)
 
 
 class ObjectSerializerOptions(SerializerOptions):
@@ -127,14 +128,18 @@ class BaseSerializer(Field):
     internal_use_only = False  # Backwards compatability
 
     def __init__(self, **kwargs):
-        source = kwargs.get('source', None)
         label = kwargs.get('label', None)
         convert = kwargs.get('convert', None)
-        super(BaseSerializer, self).__init__(source=source, label=label, convert=convert)
+        super(BaseSerializer, self).__init__(label=label, convert=convert)
         self.kwargs = kwargs
         self.opts = self._options_class(self.Meta, **kwargs)
         self.fields = SortedDict((key, copy.copy(field))
                            for key, field in self.base_fields.items())
+
+        self.has_root_field = False
+        for field in self.fields:
+            if hasattr(field, 'opts') and getattr(field.opts, 'is_root', None):
+                self.has_root_field = True
 
     def get_flat_serializer(self, obj, field_name):
         raise NotImplementedError()
@@ -202,10 +207,12 @@ class BaseSerializer(Field):
         else:
             self.opts.nested = parent.opts.nested
 
+        if self.opts.is_root:
+            return self.convert(obj)
         return super(BaseSerializer, self)._convert_field(obj, field_name, parent)
 
     def convert_object(self, obj):
-        if self.source != '*' and obj in self.stack:
+        if obj in self.stack and not self.opts.is_root:
             serializer = self.get_flat_serializer(self.orig_obj,
                                                   self.orig_field_name)
             return serializer._convert_field(self.orig_obj,
@@ -391,16 +398,16 @@ class DumpDataSerializer(ModelSerializer):
 
     pk = Field()
     model = ModelNameField()
-    # fields = DumpDataFields(source='*') - Actually set in serialize
+    fields = DumpDataFields(is_root=True)
 
     class Meta:
         include_default_fields = False
 
     def serialize(self, obj, format=None, **opts):
         if opts.get('use_natural_keys', None):
-            self.fields['fields'] = DumpDataFields(source='*', related_field=NaturalKeyRelatedField, fields=opts.get('fields', None))
+            self.fields['fields'] = DumpDataFields(is_root=True, related_field=NaturalKeyRelatedField, fields=opts.get('fields', None))
         else:
-            self.fields['fields'] = DumpDataFields(source='*', fields=opts.get('fields', None))
+            self.fields['fields'] = DumpDataFields(is_root=True, fields=opts.get('fields', None))
 
         return super(DumpDataSerializer, self).serialize(obj, format, **opts)
 
