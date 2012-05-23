@@ -142,7 +142,7 @@ class DumpDataXMLRenderer(BaseRenderer):
             attrs.update(field.attributes())
             xml.startElement('field', attrs)
 
-            if value is not None and isinstance(field, NaturalKeyRelatedField):
+            if value is not None and getattr(field, 'is_natural_key', False):
                 self.handle_natural_key(xml, value)
             elif attrs.get('rel', None) == 'ManyToManyRel':
                 self.handle_many_to_many(xml, value)

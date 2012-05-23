@@ -134,7 +134,34 @@ class NaturalKeyRelatedField(RelatedField):
     """
     Serializes a model related field or related manager to a natural key value.
     """
+    is_natural_key = True  # XML renderer handles these differently
+
     def convert(self, obj):
+        if hasattr(obj, 'natural_key'):
+            return obj.natural_key()
+        return obj
+
+
+class PrimaryKeyOrNaturalKeyRelatedField(PrimaryKeyRelatedField):
+    """
+    Serializes to either pk or natural key, depending on if 'use_natural_keys'
+    was specified.
+    """
+
+    def convert_field(self, obj, field_name):
+        if self.root.options.get('use_natural_keys', False):
+            self.is_natural_key = True
+            return self.convert_field_natural_key(obj, field_name)
+        self.is_natural_key = False
+        return super(PrimaryKeyOrNaturalKeyRelatedField, self).convert_field(obj, field_name)
+
+    def convert_field_natural_key(self, obj, field_name):
+        obj = getattr(obj, field_name)
+        if obj.__class__.__name__ in ('RelatedManager', 'ManyRelatedManager'):
+            return [self.convert_natural_key(item) for item in obj.all()]
+        return self.convert_natural_key(obj)
+
+    def convert_natural_key(self, obj):
         if hasattr(obj, 'natural_key'):
             return obj.natural_key()
         return obj

@@ -268,6 +268,7 @@ class BaseSerializer(Field):
         """
         self.root = None
         self.stack = []
+        self.options = opts
 
         data = self.convert(obj)
         format = format or self.opts.format
@@ -385,6 +386,7 @@ class DumpDataFields(ModelSerializer):
 
     class Meta:
         model_field_types = ('local_fields', 'many_to_many')
+        related_field = PrimaryKeyOrNaturalKeyRelatedField
 
 
 class DumpDataSerializer(ModelSerializer):
@@ -405,12 +407,6 @@ class DumpDataSerializer(ModelSerializer):
 
     class Meta:
         include_default_fields = False
-
-    def serialize(self, obj, format=None, **opts):
-        if opts.get('use_natural_keys', None):
-            self.fields['fields'] = DumpDataFields(is_root=True, related_field=NaturalKeyRelatedField, fields=opts.get('fields', None))
-
-        return super(DumpDataSerializer, self).serialize(obj, format, **opts)
 
 
 class JSONDumpDataSerializer(DumpDataSerializer):
