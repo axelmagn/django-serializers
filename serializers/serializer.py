@@ -136,10 +136,13 @@ class BaseSerializer(Field):
         self.fields = SortedDict((key, copy.copy(field))
                            for key, field in self.base_fields.items())
 
-        self.has_root_field = False
+        #self.has_root_field = False
         for field in self.fields:
             if hasattr(field, 'opts') and getattr(field.opts, 'is_root', None):
-                self.has_root_field = True
+                #self.has_root_field = True
+                for keyword in ('fields', 'include', 'exclude', 'nested'):
+                    if keyword in kwargs:
+                        setattr(field.opts, keyword, kwargs.pop(keyword))
 
     def get_flat_serializer(self, obj, field_name):
         raise NotImplementedError()
@@ -378,7 +381,7 @@ class ModelSerializer(RelatedField, Serializer):
 
 
 class DumpDataFields(ModelSerializer):
-    _use_sorted_dict = False
+    _use_sorted_dict = False  # Ensure byte-for-byte backwards compatability
 
     class Meta:
         model_field_types = ('local_fields', 'many_to_many')
@@ -388,7 +391,7 @@ class DumpDataSerializer(ModelSerializer):
     """
     A serializer that is intended to produce dumpdata formatted structures.
     """
-    _use_sorted_dict = False
+    _use_sorted_dict = False  # Ensure byte-for-byte backwards compatability
 
     renderer_classes = {
         'xml': DumpDataXMLRenderer,
@@ -406,8 +409,6 @@ class DumpDataSerializer(ModelSerializer):
     def serialize(self, obj, format=None, **opts):
         if opts.get('use_natural_keys', None):
             self.fields['fields'] = DumpDataFields(is_root=True, related_field=NaturalKeyRelatedField, fields=opts.get('fields', None))
-        else:
-            self.fields['fields'] = DumpDataFields(is_root=True, fields=opts.get('fields', None))
 
         return super(DumpDataSerializer, self).serialize(obj, format, **opts)
 
