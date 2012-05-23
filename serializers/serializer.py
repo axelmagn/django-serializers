@@ -86,6 +86,13 @@ class SerializerOptions(object):
             'include_default_fields', kwargs, meta, True
         )
         self.is_root = _get_option('is_root', kwargs, meta, False)
+        self.renderer_classes = _get_option('renderer_classes', kwargs, meta, {
+            'xml': XMLRenderer,
+            'json': JSONRenderer,
+            'yaml': YAMLRenderer,
+            'csv': CSVRenderer,
+            'html': HTMLRenderer,
+        })
 
 
 class ObjectSerializerOptions(SerializerOptions):
@@ -114,14 +121,6 @@ class SerializerMetaclass(type):
 class BaseSerializer(Field):
     class Meta(object):
         pass
-
-    renderer_classes = {
-        'xml': XMLRenderer,
-        'json': JSONRenderer,
-        'yaml': YAMLRenderer,
-        'csv': CSVRenderer,
-        'html': HTMLRenderer,
-    }
 
     _options_class = SerializerOptions
     _use_sorted_dict = True
@@ -258,7 +257,7 @@ class BaseSerializer(Field):
         """
         Second stage of serialization.  Primatives -> Bytestream.
         """
-        renderer = self.renderer_classes[format]()
+        renderer = self.opts.renderer_classes[format]()
         return renderer.render(data, stream, **opts)
 
     def serialize(self, obj, format=None, **opts):
@@ -395,19 +394,17 @@ class DumpDataSerializer(ModelSerializer):
     """
     _use_sorted_dict = False  # Ensure byte-for-byte backwards compatability
 
-    renderer_classes = {
-        'xml': DumpDataXMLRenderer,
-        'json': JSONRenderer,
-        'yaml': YAMLRenderer,
-    }
-
     pk = Field()
     model = ModelNameField()
     fields = DumpDataFields(is_root=True)
 
     class Meta:
         include_default_fields = False
-
+        renderer_classes = {
+            'xml': DumpDataXMLRenderer,
+            'json': JSONRenderer,
+            'yaml': YAMLRenderer,
+        }
 
 class JSONDumpDataSerializer(DumpDataSerializer):
     class Meta(DumpDataSerializer.Meta):
