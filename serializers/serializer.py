@@ -145,7 +145,7 @@ class BaseSerializer(Field):
 
     def get_default_fields(self, obj, nested):
         """
-        Return the complete set of default fields for the object.
+        Return the complete set of default fields for the object, as a dict.
         """
         raise NotImplementedError()
 
@@ -155,7 +155,10 @@ class BaseSerializer(Field):
         """
         raise NotImplementedError()
 
-    def _get_fields(self, obj, nested):
+    def get_fields(self, obj, nested):
+        """
+        Returns the complete set of fields for the object, as a dict.
+        """
         ret = SortedDict()
 
         # Get the explicitly declared fields
@@ -218,7 +221,7 @@ class BaseSerializer(Field):
 
     def convert_object(self, obj):
         if obj in self.stack and not self.opts.is_root:
-            serializer = self._get_fields(self.orig_obj, nested=False)[self.orig_field_name]
+            serializer = self.get_fields(self.orig_obj, nested=False)[self.orig_field_name]
             return serializer._convert_field(self.orig_obj,
                                              self.orig_field_name,
                                              self)
@@ -229,7 +232,7 @@ class BaseSerializer(Field):
         else:
             ret = DictWithMetadata()
 
-        fields = self._get_fields(obj, nested=self.opts.nested)
+        fields = self.get_fields(obj, nested=self.opts.nested)
         for field_name, field in fields.items():
             key = self.get_field_key(obj, field_name, field)
             value = field._convert_field(obj, field_name, self)
@@ -364,7 +367,7 @@ class ModelSerializer(RelatedField, Serializer):
 
         ret = SortedDict()
         for field in fields:
-            ret[field.name] = self.get_serializer(field, nested)
+            ret[field.name] = self.get_field(field, nested)
         return ret
 
     def get_default_field(self, obj, key, nested):
@@ -372,10 +375,10 @@ class ModelSerializer(RelatedField, Serializer):
             field = obj._meta.get_field_by_name(key)[0]
         except FieldDoesNotExist:
             return Field()
-        return self.get_serializer(field, nested)
+        return self.get_field(field, nested)
 
-    def get_serializer(self, field, nested):
-        if isinstance(field, RelatedObject) or field.rel:
+    def get_field(self, model_field, nested):
+        if isinstance(model_field, RelatedObject) or model_field.rel:
             if nested:
                 return (self.opts.nested_related_field or self.__class__)()
             return self.opts.related_field()

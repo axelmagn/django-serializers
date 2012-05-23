@@ -51,7 +51,7 @@ class Field(object):
 
 class ModelField(Field):
     def convert_field(self, obj, field_name):
-        field = self.obj._meta.get_field_by_name(self.field_name)[0]
+        field = obj._meta.get_field_by_name(self.field_name)[0]
         value = field._get_val_from_obj(obj)
         # Protected types (i.e., primitives like None, numbers, dates,
         # and Decimals) are passed through as is. All other values are
