@@ -145,7 +145,7 @@ class NaturalKeyRelatedField(RelatedField):
 class PrimaryKeyOrNaturalKeyRelatedField(PrimaryKeyRelatedField):
     """
     Serializes to either pk or natural key, depending on if 'use_natural_keys'
-    was specified.
+    is specified when calling `serialize()`.
     """
 
     def convert_field(self, obj, field_name):
