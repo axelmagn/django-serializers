@@ -144,34 +144,46 @@ class BaseSerializer(Field):
         self.opts = self._options_class(self.Meta, **kwargs)
 
     def get_default_fields(self, obj, nested):
+        """
+        Return the complete set of default fields for the object.
+        """
         raise NotImplementedError()
 
     def get_default_field(self, obj, field_name, nested):
+        """
+        Return a single default field for the object.
+        """
         raise NotImplementedError()
 
     def _get_fields(self, obj, nested):
         ret = SortedDict()
 
+        # Get the explicitly declared fields
         for key, field in self.fields.items():
             ret[key] = field
 
+        # Add in the default fields
         if self.opts.include_default_fields:
             for key, val in self.get_default_fields(obj, nested).items():
                 if key not in ret:
                     ret[key] = val
 
-        # Apply 'fields', 'include', 'exclude'
+        # If 'fields' is specified, return only those field, in that order
         if self.opts.fields:
             new = SortedDict()
             for key in self.opts.fields:
                 new[key] = ret.get(key, self.get_default_field(obj, key, nested))
-            ret = new
-        else:
-            if self.opts.exclude:
-                for key in self.opts.exclude:
-                    ret.pop(key, None)
-            if self.opts.include:
-                for key in self.opts.include:
+            return new
+
+        # Remove anything in 'exclude'
+        if self.opts.exclude:
+            for key in self.opts.exclude:
+                ret.pop(key, None)
+
+        # Add anything in 'include'
+        if self.opts.include:
+            for key in self.opts.include:
+                if key not in ret:
                     ret[key] = self.get_default_field(obj, key, nested)
 
         return ret
