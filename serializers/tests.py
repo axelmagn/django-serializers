@@ -631,7 +631,7 @@ class TestSimpleModel(SerializationTestCase):
 class TestNullPKModel(SerializationTestCase):
     def setUp(self):
         self.dumpdata = DumpDataSerializer()
-        self.serializer = ModelSerializer(depth=0)
+        self.serializer = ModelSerializer()
         self.objs = [RaceEntry(
             name='John doe',
             runner_number=6014,
