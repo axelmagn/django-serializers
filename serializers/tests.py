@@ -631,7 +631,7 @@ class TestSimpleModel(SerializationTestCase):
 class TestNullPKModel(SerializationTestCase):
     def setUp(self):
         self.dumpdata = DumpDataSerializer()
-        self.serializer = ModelSerializer()
+        self.serializer = ModelSerializer(model=RaceEntry)
         self.objs = [RaceEntry(
             name='John doe',
             runner_number=6014,
@@ -657,6 +657,15 @@ class TestNullPKModel(SerializationTestCase):
             serializers.serialize('xml', self.objs)
         )
 
+    def test_modelserializer_deserialize(self):
+        lhs = get_deserialized(RaceEntry.objects.all(), serializer=self.serializer)
+        rhs = get_deserialized(RaceEntry.objects.all())
+        self.assertTrue(deserialized_eq(lhs, rhs))
+
+    def test_dumpdata_deserialize(self):
+        lhs = get_deserialized(RaceEntry.objects.all(), serializer=self.dumpdata)
+        rhs = get_deserialized(RaceEntry.objects.all())
+        self.assertTrue(deserialized_eq(lhs, rhs))
 
 ##### Model Inheritance #####
 
