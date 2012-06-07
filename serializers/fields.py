@@ -2,7 +2,6 @@ import datetime
 from django.utils.encoding import is_protected_type, smart_unicode
 from django.core import validators
 from django.core.exceptions import ValidationError
-from django.core.serializers.base import DeserializationError
 from django.conf import settings
 from django.db.models.related import RelatedObject
 from django.db import models
@@ -76,7 +75,6 @@ class ModelField(Field):
         return super(ModelField, self).convert_field(obj, field_name)
 
     # def revert_field(self, data, field_name, into):
-    #     print self.field
     #     into[field_name] = self.revert(data.get(field_name))
 
     def attributes(self):
@@ -160,6 +158,10 @@ class PrimaryKeyRelatedField(RelatedField):
         if obj.__class__.__name__ == 'ManyRelatedManager':
             return [self.convert(item.pk) for item in obj.all()]
         return obj
+
+    def revert_field(self, data, field_name, into):
+        # Hack!
+        into[field_name + '_id'] = self.revert(data.get(field_name))
 
 
 class NaturalKeyRelatedField(RelatedField):

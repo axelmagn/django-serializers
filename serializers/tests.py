@@ -857,7 +857,7 @@ class TestOneToOneModel(SerializationTestCase):
     def setUp(self):
         self.dumpdata = DumpDataSerializer()
         self.nested_model = ModelSerializer(nested=True)
-        self.flat_model = ModelSerializer()
+        self.flat_model = ModelSerializer(model=Profile)
         user = User.objects.create(email='joe@example.com')
         Profile.objects.create(
             user=user,
@@ -913,9 +913,7 @@ class TestOneToOneModel(SerializationTestCase):
     def test_modelserializer_deserialize(self):
         lhs = get_deserialized(Profile.objects.all(), serializer=self.flat_model)
         rhs = get_deserialized(Profile.objects.all())
-        self.assertFalse(deserialized_eq(lhs, rhs))
-        # We expect these *not* to match - the dumpdata implementation only
-        # includes the base fields.
+        self.assertTrue(deserialized_eq(lhs, rhs))
 
     def test_dumpdata_deserialize(self):
         lhs = get_deserialized(Profile.objects.all(), serializer=self.dumpdata)
@@ -987,7 +985,7 @@ class TestFKModel(SerializationTestCase):
     def setUp(self):
         self.dumpdata = DumpDataSerializer()
         self.nested_model = ModelSerializer(nested=True)
-        self.flat_model = ModelSerializer()
+        self.flat_model = ModelSerializer(model=Vehicle)
         self.owner = Owner.objects.create(
             email='tom@example.com'
         )
@@ -1046,6 +1044,16 @@ class TestFKModel(SerializationTestCase):
             self.flat_model.serialize(Vehicle.objects.get(id=1)),
             expected
         )
+
+    def test_modelserializer_deserialize(self):
+        lhs = get_deserialized(Vehicle.objects.all(), serializer=self.flat_model)
+        rhs = get_deserialized(Vehicle.objects.all())
+        self.assertTrue(deserialized_eq(lhs, rhs))
+
+    def test_dumpdata_deserialize(self):
+        lhs = get_deserialized(Vehicle.objects.all(), serializer=self.dumpdata)
+        rhs = get_deserialized(Vehicle.objects.all())
+        self.assertTrue(deserialized_eq(lhs, rhs))
 
     def test_reverse_fk_flat(self):
         expected = {

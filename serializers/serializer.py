@@ -180,7 +180,7 @@ class BaseSerializer(Field):
                 if key not in ret:
                     ret[key] = val
 
-        # If 'fields' is specified, return only those field, in that order
+        # If 'fields' is specified, return only those fields, in that order
         if self.opts.fields:
             new = SortedDict()
             for key in self.opts.fields:
