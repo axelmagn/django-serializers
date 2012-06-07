@@ -20,6 +20,7 @@ class Field(object):
         self.label = label
         if convert:
             self.convert = convert
+        self.parent = None
         self.creation_counter = Field.creation_counter
         Field.creation_counter += 1
 
@@ -32,6 +33,10 @@ class Field(object):
         self.parent = parent
         self.root = parent.root or parent
         return self.convert_field(obj, field_name)
+
+    def _revert_field(self, data, field_name, parent):
+        self.parent = parent
+        return self.revert_field(data, field_name)
 
     def revert_field(self, data, field_name):
         value = data.get(field_name)
@@ -70,27 +75,6 @@ class ModelField(Field):
         except:
             pass
         return super(ModelField, self).convert_field(obj, field_name)
-
-        # value = field._get_val_from_obj(obj)
-        # # Protected types (i.e., primitives like None, numbers, dates,
-        # # and Decimals) are passed through as is. All other values are
-        # # converted to string first.
-        # self.field = field
-        # if is_protected_type(value):
-        #     return value
-        # else:
-        #     return field.value_to_string(obj)
-    # def convert_field(self, obj, field_name):
-    #     field = obj._meta.get_field_by_name(self.field_name)[0]
-    #     value = field._get_val_from_obj(obj)
-    #     # Protected types (i.e., primitives like None, numbers, dates,
-    #     # and Decimals) are passed through as is. All other values are
-    #     # converted to string first.
-    #     self.field = field
-    #     if is_protected_type(value):
-    #         return value
-    #     else:
-    #         return field.value_to_string(obj)
 
     def attributes(self):
         return {
@@ -204,17 +188,9 @@ class ModelNameField(Field):
     def convert_field(self, obj, field_name):
         return smart_unicode(obj._meta)
 
-    def revert(self, value):
-        """
-        Look up the model class from an "app_label.module_name" string.
-        """
-        try:
-            Model = models.get_model(*value.split("."))
-        except TypeError:
-            Model = None
-        if Model is None:
-            raise DeserializationError(u"Invalid model identifier: '%s'" % value)
-        return Model
+    def revert_field(self, data, field_name):
+        # We don't actually want to restore the model name metadata to a field.
+        pass
 
 
 class BooleanField(ModelField):

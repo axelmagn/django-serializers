@@ -228,6 +228,11 @@ class BaseSerializer(Field):
             return self.convert(obj)
         return super(BaseSerializer, self)._convert_field(obj, field_name, parent)
 
+    def _revert_field(self, data, field_name, parent):
+        self.orig_data = data
+        self.parent = parent
+        return self.revert_field(data, field_name)
+
     def convert_object(self, obj):
         if obj in self.stack and not self.opts.is_root:
             serializer = self.get_fields(self.orig_obj, nested=False)[self.orig_field_name]
@@ -248,12 +253,31 @@ class BaseSerializer(Field):
             ret.set_with_metadata(key, value, field)
         return ret
 
-    def revert_object(self, data):
-        fields = self.get_fields(self.opts.model, nested=self.opts.nested)
-        reverted = {}
+    def revert_class(self, data):
+        if self.opts.is_root:
+            return self.parent.revert_class(self.orig_data)
+        return None
+
+    def revert_fields(self, data, cls):
+        fields = self.get_fields(cls, nested=self.opts.nested)
+        reverted_data = {}
         for field_name, field in fields.items():
-            reverted[field_name] = field.revert_field(data, field_name)
-        return DeserializedObject(self.opts.model(**reverted))
+            field_data = field._revert_field(data, field_name, self)
+            # Normally we're setting a key for each field, but if it's a
+            # nested 'is_root' field we're updating the dict directly.
+            if getattr(getattr(field, 'opts', None), 'is_root', False):
+                reverted_data.update(field_data)
+            else:
+                reverted_data[field_name] = field_data
+        return reverted_data
+
+    def revert_object(self, data):
+        cls = self.revert_class(data)
+        reverted_data = self.revert_fields(data, cls)
+        if cls is None:
+            return reverted_data
+        else:
+            return cls(**reverted_data)
 
     def _convert_iterable(self, obj):
         for item in obj:
@@ -432,6 +456,15 @@ class ModelSerializer(RelatedField, Serializer):
         field_class = modelfield_to_serializerfield(model_field)
         return field_class()
 
+    def revert_class(self, data):
+        if self.opts.is_root:
+            return self.parent.revert_class(self.orig_data)
+        return self.opts.model
+
+    def revert_object(self, data):
+        obj = super(ModelSerializer, self).revert_object(data)
+        return DeserializedObject(obj)
+
 
 class DumpDataFields(ModelSerializer):
     _use_sorted_dict = False  # Ensure byte-for-byte backwards compatability
@@ -439,6 +472,10 @@ class DumpDataFields(ModelSerializer):
     class Meta:
         model_field_types = ('local_fields', 'many_to_many')
         related_field = PrimaryKeyOrNaturalKeyRelatedField
+
+    def revert_object(self, data):
+        cls = self.revert_class(data)
+        return self.revert_fields(data, cls)
 
 
 class DumpDataSerializer(ModelSerializer):
@@ -458,6 +495,15 @@ class DumpDataSerializer(ModelSerializer):
             'json': JSONRenderer,
             'yaml': YAMLRenderer,
         }
+
+    def revert_class(self, data):
+        try:
+            Model = models.get_model(*data['model'].split("."))
+        except TypeError:
+            Model = None
+        if Model is None:
+            raise DeserializationError(u"Invalid model identifier: '%s'" % value)
+        return Model
 
 
 class JSONDumpDataSerializer(DumpDataSerializer):
