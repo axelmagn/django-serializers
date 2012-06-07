@@ -707,15 +707,17 @@ class TestModelInheritance(SerializationTestCase):
             expected
         )
 
-    # def test_modelserializer_deserialize(self):
-    #     lhs = get_deserialized(RaceEntry.objects.all(), serializer=self.serializer)
-    #     rhs = get_deserialized(RaceEntry.objects.all())
-    #     self.assertTrue(deserialized_eq(lhs, rhs))
+    def test_modelserializer_deserialize(self):
+        lhs = get_deserialized(PremiumAccount.objects.all(), serializer=self.serializer)
+        rhs = get_deserialized(PremiumAccount.objects.all())
+        self.assertFalse(deserialized_eq(lhs, rhs))
+        # We expect these *not* to match - the dumpdata implementation only
+        # includes the base fields.
 
-    # def test_dumpdata_deserialize(self):
-    #     lhs = get_deserialized(RaceEntry.objects.all(), serializer=self.dumpdata)
-    #     rhs = get_deserialized(RaceEntry.objects.all())
-    #     self.assertTrue(deserialized_eq(lhs, rhs))
+    def test_dumpdata_deserialize(self):
+        lhs = get_deserialized(PremiumAccount.objects.all(), serializer=self.dumpdata)
+        rhs = get_deserialized(PremiumAccount.objects.all())
+        self.assertTrue(deserialized_eq(lhs, rhs))
 
 
 # ##### Natural Keys #####
@@ -907,6 +909,18 @@ class TestOneToOneModel(SerializationTestCase):
             self.flat_model.serialize(Profile.objects.get(id=1)),
             expected
         )
+
+    def test_modelserializer_deserialize(self):
+        lhs = get_deserialized(Profile.objects.all(), serializer=self.flat_model)
+        rhs = get_deserialized(Profile.objects.all())
+        self.assertFalse(deserialized_eq(lhs, rhs))
+        # We expect these *not* to match - the dumpdata implementation only
+        # includes the base fields.
+
+    def test_dumpdata_deserialize(self):
+        lhs = get_deserialized(Profile.objects.all(), serializer=self.dumpdata)
+        rhs = get_deserialized(Profile.objects.all())
+        self.assertTrue(deserialized_eq(lhs, rhs))
 
 
 class TestReverseOneToOneModel(SerializationTestCase):

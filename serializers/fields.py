@@ -75,13 +75,17 @@ class ModelField(Field):
             pass
         return super(ModelField, self).convert_field(obj, field_name)
 
+    # def revert_field(self, data, field_name, into):
+    #     print self.field
+    #     into[field_name] = self.revert(data.get(field_name))
+
     def attributes(self):
         return {
             "type": self.field.get_internal_type()
         }
 
 
-class RelatedField(Field):
+class RelatedField(ModelField):
     """
     A base class for model related fields or related managers.
 
@@ -118,6 +122,10 @@ class PrimaryKeyRelatedField(RelatedField):
     #     def convert(self, obj):
     #         return obj.pk
 
+    error_messages = {
+        'invalid': _(u"'%s' value must be an integer."),
+    }
+
     def convert(self, pk):
         """
         Simply returns the object's pk.  You can subclass this method to
@@ -125,6 +133,17 @@ class PrimaryKeyRelatedField(RelatedField):
         (For example returning a URL based on the model's pk.)
         """
         return pk
+
+    def revert(self, value):
+        # self.field = self.obj._meta.get_field_by_name(self.field_name)[0]
+        # print self.field.rel.to._meta.get_field(self.field.rel.field_name).to_python(value)
+        if value in validators.EMPTY_VALUES:
+            return None
+        try:
+            value = int(value)
+        except (ValueError, TypeError):
+            raise ValidationError(self.error_messages['invalid'])
+        return value
 
     def convert_field(self, obj, field_name):
         self.test = field_name
