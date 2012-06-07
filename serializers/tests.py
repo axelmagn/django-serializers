@@ -658,14 +658,15 @@ class TestNullPKModel(SerializationTestCase):
         )
 
     def test_modelserializer_deserialize(self):
-        lhs = get_deserialized(RaceEntry.objects.all(), serializer=self.serializer)
-        rhs = get_deserialized(RaceEntry.objects.all())
+        lhs = get_deserialized(self.objs, serializer=self.serializer)
+        rhs = get_deserialized(self.objs)
         self.assertTrue(deserialized_eq(lhs, rhs))
 
     def test_dumpdata_deserialize(self):
-        lhs = get_deserialized(RaceEntry.objects.all(), serializer=self.dumpdata)
-        rhs = get_deserialized(RaceEntry.objects.all())
+        lhs = get_deserialized(self.objs, serializer=self.dumpdata)
+        rhs = get_deserialized(self.objs)
         self.assertTrue(deserialized_eq(lhs, rhs))
+
 
 ##### Model Inheritance #####
 
@@ -681,7 +682,7 @@ class PremiumAccount(Account):
 class TestModelInheritance(SerializationTestCase):
     def setUp(self):
         self.dumpdata = DumpDataSerializer()
-        self.serializer = ModelSerializer()
+        self.serializer = ModelSerializer(model=PremiumAccount)
         PremiumAccount.objects.create(
             points=42,
             company='Foozle Inc.',
@@ -705,6 +706,16 @@ class TestModelInheritance(SerializationTestCase):
             self.serializer.serialize(PremiumAccount.objects.all()),
             expected
         )
+
+    # def test_modelserializer_deserialize(self):
+    #     lhs = get_deserialized(RaceEntry.objects.all(), serializer=self.serializer)
+    #     rhs = get_deserialized(RaceEntry.objects.all())
+    #     self.assertTrue(deserialized_eq(lhs, rhs))
+
+    # def test_dumpdata_deserialize(self):
+    #     lhs = get_deserialized(RaceEntry.objects.all(), serializer=self.dumpdata)
+    #     rhs = get_deserialized(RaceEntry.objects.all())
+    #     self.assertTrue(deserialized_eq(lhs, rhs))
 
 
 # ##### Natural Keys #####
