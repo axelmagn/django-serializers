@@ -696,6 +696,11 @@ class TestNullPKModel(SerializationTestCase):
         rhs = get_deserialized(self.objs)
         self.assertTrue(deserialized_eq(lhs, rhs))
 
+    def test_dumpdata_deserialize_xml(self):
+        lhs = get_deserialized(self.objs, format='xml', serializer=self.dumpdata)
+        rhs = get_deserialized(self.objs, format='xml')
+        self.assertTrue(deserialized_eq(lhs, rhs))
+
 
 ##### Model Inheritance #####
 
