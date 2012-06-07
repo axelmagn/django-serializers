@@ -299,6 +299,10 @@ class BaseSerializer(Field):
             return self._convert_iterable(obj)
         return self.convert_object(obj)
 
+    def _revert_iterable(self, data):
+        for item in data:
+            yield self.revert(item)
+
     def revert(self, data):
         """
         Reverse first stage of serialization.  Primatives -> Objects.
@@ -306,7 +310,7 @@ class BaseSerializer(Field):
         if _is_protected_type(data):
             return data
         elif hasattr(data, '__iter__') and not isinstance(data, dict):
-            return [self.revert(item) for item in data]
+            return self._revert_iterable(data)
         else:
             return self.revert_object(data)
 
@@ -356,6 +360,7 @@ class BaseSerializer(Field):
     def deserialize(self, stream_or_string, format=None):
         """
         """
+        format = format or self.opts.format
         if format:
             if isinstance(stream_or_string, basestring):
                 stream = BytesIO(stream_or_string)
