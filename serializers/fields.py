@@ -71,8 +71,15 @@ class ModelField(Field):
         try:
             self.field = obj._meta.get_field_by_name(self.field_name)[0]
         except:
-            pass
-        return super(ModelField, self).convert_field(obj, field_name)
+            return super(ModelField, self).convert_field(obj, field_name)
+
+        # TODO: Possible to cut some of this out?  Required to make the tests pass right now.
+        value = self.field._get_val_from_obj(obj)
+
+        if is_protected_type(value):
+            return value
+        else:
+            return self.field.value_to_string(obj)
 
     # def revert_field(self, data, field_name, into):
     #     into[field_name] = self.revert(data.get(field_name))
