@@ -39,6 +39,8 @@ def deserialized_eq(objects1, objects2):
     for index in range(len(objects1)):
         if objects1[index].object != objects2[index].object:
             return False
+        if objects1[index].m2m_data != objects2[index].m2m_data:
+            return False
     return True
 
 

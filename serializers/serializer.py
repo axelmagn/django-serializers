@@ -464,7 +464,7 @@ class ModelSerializer(RelatedField, Serializer):
 
     def revert_object(self, data):
         obj = super(ModelSerializer, self).revert_object(data)
-        return DeserializedObject(obj)
+        return DeserializedObject(obj, {})
 
 
 class DumpDataFields(ModelSerializer):
