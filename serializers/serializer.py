@@ -228,10 +228,17 @@ class BaseSerializer(Field):
             return self.convert(obj)
         return super(BaseSerializer, self)._convert_field(obj, field_name, parent)
 
-    def _revert_field(self, data, field_name, parent):
+    def _revert_field(self, data, field_name, into, parent):
         self.orig_data = data
         self.parent = parent
-        return self.revert_field(data, field_name)
+        self.revert_field(data, field_name, into)
+
+    def revert_field(self, data, field_name, into):
+        field_data = self.revert(data.get(field_name))
+        if self.opts.is_root:
+            into.update(field_data)
+        else:
+            into[field_name] = field_data
 
     def convert_object(self, obj):
         if obj in self.stack and not self.opts.is_root:
@@ -262,13 +269,7 @@ class BaseSerializer(Field):
         fields = self.get_fields(cls, nested=self.opts.nested)
         reverted_data = {}
         for field_name, field in fields.items():
-            field_data = field._revert_field(data, field_name, self)
-            # Normally we're setting a key for each field, but if it's a
-            # nested 'is_root' field we're updating the dict directly.
-            if getattr(getattr(field, 'opts', None), 'is_root', False):
-                reverted_data.update(field_data)
-            else:
-                reverted_data[field_name] = field_data
+            field._revert_field(data, field_name, reverted_data, self)
         return reverted_data
 
     def revert_object(self, data):

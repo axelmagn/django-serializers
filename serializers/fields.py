@@ -34,13 +34,12 @@ class Field(object):
         self.root = parent.root or parent
         return self.convert_field(obj, field_name)
 
-    def _revert_field(self, data, field_name, parent):
+    def _revert_field(self, data, field_name, into, parent):
         self.parent = parent
-        return self.revert_field(data, field_name)
+        self.revert_field(data, field_name, into)
 
-    def revert_field(self, data, field_name):
-        value = data.get(field_name)
-        return self.revert(value)
+    def revert_field(self, data, field_name, into):
+        into[field_name] = self.revert(data.get(field_name))
 
     def convert_field(self, obj, field_name):
         """
@@ -188,7 +187,7 @@ class ModelNameField(Field):
     def convert_field(self, obj, field_name):
         return smart_unicode(obj._meta)
 
-    def revert_field(self, data, field_name):
+    def revert_field(self, data, field_name, into):
         # We don't actually want to restore the model name metadata to a field.
         pass
 
