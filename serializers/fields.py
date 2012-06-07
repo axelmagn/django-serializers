@@ -38,10 +38,12 @@ class Field(object):
         self.revert_field(data, field_name, into)
 
     def revert_field(self, data, field_name, into):
+        if not field_name in data:
+            return
         into[field_name] = self.revert(data.get(field_name))
 
     def revert(self, value):
-        raise NotImplemented
+        raise value
 
     def convert_field(self, obj, field_name):
         """
@@ -376,6 +378,7 @@ field_mapping = {
     models.CharField: CharField,
     models.DateTimeField: DateTimeField,  # Needs to be before DateField!
     models.DateField: DateField,
+    models.BigIntegerField: IntegerField,  # Before IntegerField
     models.IntegerField: IntegerField,
     models.PositiveIntegerField: IntegerField,
     models.FloatField: FloatField
