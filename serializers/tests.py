@@ -1109,7 +1109,7 @@ class TestManyToManyModel(SerializationTestCase):
     def setUp(self):
         self.dumpdata = DumpDataSerializer()
         self.nested_model = ModelSerializer(nested=True)
-        self.flat_model = ModelSerializer()
+        self.flat_model = ModelSerializer(model=Book)
         self.lucy = Author.objects.create(
             name='Lucy Black'
         )
@@ -1189,6 +1189,16 @@ class TestManyToManyModel(SerializationTestCase):
             self.flat_model.serialize(Book.objects.get(id=1)),
             expected
         )
+
+    # def test_modelserializer_deserialize(self):
+    #     lhs = get_deserialized(Book.objects.all(), serializer=self.flat_model)
+    #     rhs = get_deserialized(Book.objects.all())
+    #     self.assertTrue(deserialized_eq(lhs, rhs))
+
+    # def test_dumpdata_deserialize(self):
+    #     lhs = get_deserialized(Book.objects.all(), serializer=self.dumpdata)
+    #     rhs = get_deserialized(Book.objects.all())
+    #     self.assertTrue(deserialized_eq(lhs, rhs))
 
 
 class Anchor(models.Model):
