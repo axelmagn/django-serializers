@@ -43,7 +43,7 @@ class Field(object):
         into[field_name] = self.revert(data.get(field_name))
 
     def revert(self, value):
-        raise value
+        return value
 
     def convert_field(self, obj, field_name):
         """
