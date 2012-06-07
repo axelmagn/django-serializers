@@ -1,6 +1,15 @@
+import datetime
 from django.utils.encoding import is_protected_type, smart_unicode
+from django.core import validators
+from django.core.exceptions import ValidationError
+from django.conf import settings
 from django.db.models.related import RelatedObject
+from django.db import models
+from django.utils import timezone
+from django.utils.dateparse import parse_date, parse_datetime
+from django.utils.translation import ugettext_lazy as _
 from serializers.utils import is_simple_callable
+import warnings
 
 
 class Field(object):
@@ -22,6 +31,10 @@ class Field(object):
         self.parent = parent
         self.root = parent.root or parent
         return self.convert_field(obj, field_name)
+
+    def revert_field(self, data, field_name):
+        value = data.get(field_name)
+        return self.revert(value)
 
     def convert_field(self, obj, field_name):
         """
@@ -173,3 +186,127 @@ class ModelNameField(Field):
     """
     def convert_field(self, obj, field_name):
         return smart_unicode(obj._meta)
+
+# Blah
+
+
+class BooleanField(ModelField):
+    error_messages = {
+        'invalid': _(u"'%s' value must be either True or False."),
+    }
+
+    def revert(self, value):
+        if value in (True, False):
+            # if value is 1 or 0 than it's equal to True or False, but we want
+            # to return a true bool for semantic reasons.
+            return bool(value)
+        if value in ('t', 'True', '1'):
+            return True
+        if value in ('f', 'False', '0'):
+            return False
+        raise ValidationError(self.error_messages['invalid'] % value)
+
+
+class CharField(ModelField):
+    def revert(self, value):
+        if isinstance(value, basestring) or value is None:
+            return value
+        return smart_unicode(value)
+
+
+class DateField(ModelField):
+    def revert(self, value):
+        if value is None:
+            return value
+        if isinstance(value, datetime.datetime):
+            if settings.USE_TZ and timezone.is_aware(value):
+                # Convert aware datetimes to the default time zone
+                # before casting them to dates (#17742).
+                default_timezone = timezone.get_default_timezone()
+                value = timezone.make_naive(value, default_timezone)
+            return value.date()
+        if isinstance(value, datetime.date):
+            return value
+
+        try:
+            parsed = parse_date(value)
+            if parsed is not None:
+                return parsed
+        except ValueError:
+            msg = self.error_messages['invalid_date'] % value
+            raise ValidationError(msg)
+
+        msg = self.error_messages['invalid'] % value
+        raise ValidationError(msg)
+
+
+class DateTimeField(ModelField):
+    def revert(self, value):
+        if value is None:
+            return value
+        if isinstance(value, datetime.datetime):
+            return value
+        if isinstance(value, datetime.date):
+            value = datetime.datetime(value.year, value.month, value.day)
+            if settings.USE_TZ:
+                # For backwards compatibility, interpret naive datetimes in
+                # local time. This won't work during DST change, but we can't
+                # do much about it, so we let the exceptions percolate up the
+                # call stack.
+                warnings.warn(u"DateTimeField received a naive datetime (%s)"
+                              u" while time zone support is active." % value,
+                              RuntimeWarning)
+                default_timezone = timezone.get_default_timezone()
+                value = timezone.make_aware(value, default_timezone)
+            return value
+
+        try:
+            parsed = parse_datetime(value)
+            if parsed is not None:
+                return parsed
+        except ValueError:
+            msg = self.error_messages['invalid_datetime'] % value
+            raise ValidationError(msg)
+
+        try:
+            parsed = parse_date(value)
+            if parsed is not None:
+                return datetime.datetime(parsed.year, parsed.month, parsed.day)
+        except ValueError:
+            msg = self.error_messages['invalid_date'] % value
+            raise ValidationError(msg)
+
+        msg = self.error_messages['invalid'] % value
+        raise ValidationError(msg)
+
+
+class IntegerField(ModelField):
+    error_messages = {
+        'invalid': _(u"'%s' value must be an integer."),
+    }
+
+    def revert(self, value):
+        if value in validators.EMPTY_VALUES:
+            return None
+        try:
+            value = int(value)
+        except (ValueError, TypeError):
+            raise ValidationError(self.error_messages['invalid'])
+        return value
+
+
+field_mapping = {
+    models.AutoField: IntegerField,
+    models.BooleanField: BooleanField,
+    models.CharField: CharField,
+    models.DateField: DateField,
+    models.DateTimeField: DateTimeField,
+    models.IntegerField: IntegerField,
+}
+
+
+def modelfield_to_serializerfield(field):
+    for from_class, to_class in field_mapping.items():
+        if isinstance(field, from_class):
+            return to_class
+    return ModelField

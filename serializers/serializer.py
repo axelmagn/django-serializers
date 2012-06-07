@@ -12,6 +12,9 @@ from serializers.renderers import (
     CSVRenderer,
     DumpDataXMLRenderer
 )
+from serializers.parsers import (
+    JSONParser
+)
 from serializers.fields import *
 from serializers.utils import (
     DictWithMetadata,
@@ -19,6 +22,7 @@ from serializers.utils import (
     is_simple_callable
 )
 from StringIO import StringIO
+from io import BytesIO
 
 
 def _is_protected_type(obj):
@@ -93,6 +97,9 @@ class SerializerOptions(object):
             'csv': CSVRenderer,
             'html': HTMLRenderer,
         })
+        self.parser_classes = _get_option('parser_classes', kwargs, meta, {
+            'json': JSONParser
+        })
 
 
 class ObjectSerializerOptions(SerializerOptions):
@@ -110,6 +117,7 @@ class ModelSerializerOptions(SerializerOptions):
         self.non_model_field = _get_option('non_model_field', kwargs, meta, Field)
         self.related_field = _get_option('related_field', kwargs, meta, PrimaryKeyRelatedField)
         self.nested_related_field = _get_option('nested_related_field', kwargs, meta, None)
+        self.model = _get_option('model', kwargs, meta, None)
 
 
 class SerializerMetaclass(type):
@@ -239,6 +247,13 @@ class BaseSerializer(Field):
             ret.set_with_metadata(key, value, field)
         return ret
 
+    def revert_object(self, data):
+        fields = self.get_fields(self.opts.model, nested=self.opts.nested)
+        reverted = {}
+        for field_name, field in fields.items():
+            reverted[field_name] = field.revert_field(data, field_name)
+        return self.opts.model(**reverted)
+
     def _convert_iterable(self, obj):
         for item in obj:
             yield self.convert(item)
@@ -258,12 +273,30 @@ class BaseSerializer(Field):
             return self._convert_iterable(obj)
         return self.convert_object(obj)
 
+    def revert(self, data):
+        """
+        Reverse first stage of serialization.  Primatives -> Objects.
+        """
+        if _is_protected_type(data):
+            return data
+        elif hasattr(data, '__iter__') and not isinstance(data, dict):
+            return [self.revert(item) for item in data]
+        else:
+            return self.revert_object(data)
+
     def render(self, data, stream, format, **opts):
         """
         Second stage of serialization.  Primatives -> Bytestream.
         """
         renderer = self.opts.renderer_classes[format]()
         return renderer.render(data, stream, **opts)
+
+    def parse(self, stream, format):
+        """
+        Reverse the second stage of serialization.  Bytestream -> Primatives.
+        """
+        parser = self.opts.parser_classes[format]()
+        return parser.parse(stream)
 
     def serialize(self, obj, format=None, **opts):
         """
@@ -286,6 +319,19 @@ class BaseSerializer(Field):
         else:
             self.value = data
         return self.value
+
+    def deserialize(self, stream_or_string, format=None):
+        """
+        """
+        if format:
+            if isinstance(stream_or_string, basestring):
+                stream = BytesIO(stream_or_string)
+            else:
+                stream = stream_or_string
+            data = self.parse(stream, format)
+        else:
+            data = stream_or_string
+        return self.revert(data)
 
     def getvalue(self):  # For backwards compatability with existing API.
         return self.value
@@ -382,7 +428,8 @@ class ModelSerializer(RelatedField, Serializer):
             if nested:
                 return (self.opts.nested_related_field or self.__class__)()
             return self.opts.related_field()
-        return self.opts.model_field()
+        field_class = modelfield_to_serializerfield(model_field)
+        return field_class()
 
 
 class DumpDataFields(ModelSerializer):

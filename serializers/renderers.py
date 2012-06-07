@@ -3,9 +3,7 @@ from django.utils import simplejson as json
 from django.utils.encoding import smart_unicode
 from django.utils.html import urlize
 from django.utils.xmlutils import SimplerXMLGenerator
-from serializers.fields import NaturalKeyRelatedField
 from serializers.utils import SafeDumper, DictWriter, DjangoJSONEncoder
-import StringIO
 try:
     import yaml
 except ImportError:

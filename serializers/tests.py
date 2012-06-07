@@ -21,6 +21,25 @@ def expand(obj):
     return obj
 
 
+def get_deserialized(queryset, serializer=None):
+    if serializer:
+        # django-serializers
+        serialized = serializer.serialize(queryset, format='json')
+        return serializer.deserialize(serialized, format='json')
+    # Existing Django serializers
+    serialized = serializers.serialize('json', queryset)
+    return serializers.deserialize('json', serialized)
+
+
+def deserialized_eq(objects1, objects2):
+    if len(objects1) != len(objects2):
+        return False
+    for index in range(len(objects1)):
+        if objects1[index].object != objects2[index].object:
+            return False
+    return True
+
+
 class SerializationTestCase(TestCase):
     def assertEquals(self, lhs, rhs):
         """
@@ -593,6 +612,16 @@ class TestSimpleModel(SerializationTestCase):
             self.serializer.serialize(RaceEntry.objects.all(), 'csv'),
             expected
         )
+
+    # def test_deserialize(self):
+    #     stream = self.serializer.serialize(RaceEntry.objects.all(), 'json')
+    #     print self.serializer.deserialize(stream, 'json')
+        #serializers.serialize('json', RaceEntry.objects.all())
+        # obj = list(get_deserialized(RaceEntry.objects.all()))
+        # obj2 = list(get_deserialized(RaceEntry.objects.all()))
+
+        # print get_deserialized(RaceEntry.objects.all(), serializer=ModelSerializer())
+        # print deserialized_eq(obj, obj2)
 
 
 class TestNullPKModel(SerializationTestCase):
