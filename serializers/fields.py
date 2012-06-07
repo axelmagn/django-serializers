@@ -353,6 +353,20 @@ class IntegerField(ModelField):
         return value
 
 
+class FloatField(ModelField):
+    error_messages = {
+        'invalid': _("'%s' value must be a float."),
+    }
+
+    def revert(self, value):
+        if value is None:
+            return value
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            msg = self.error_messages['invalid'] % value
+            raise ValidationError(msg)
+
 field_mapping = {
     models.AutoField: IntegerField,
     models.BooleanField: BooleanField,
@@ -360,7 +374,8 @@ field_mapping = {
     models.DateTimeField: DateTimeField,  # Needs to be before DateField!
     models.DateField: DateField,
     models.IntegerField: IntegerField,
-    models.PositiveIntegerField: IntegerField
+    models.PositiveIntegerField: IntegerField,
+    models.FloatField: FloatField
 }
 
 

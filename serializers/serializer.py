@@ -338,11 +338,18 @@ class BaseSerializer(Field):
         self.options = opts
 
         # If one of our fields has 'is_root' set, pass through some of our args
+        has_root_field = False
         for key, field in self.fields.items():
             if hasattr(field, 'opts') and getattr(field.opts, 'is_root', None):
+                has_root_field = True
                 for keyword in ('fields', 'include', 'exclude', 'nested'):
                     if keyword in opts:
                         setattr(field.opts, keyword, opts.pop(keyword))
+
+        if not has_root_field:
+            for keyword in ('fields', 'include', 'exclude', 'nested'):
+                if keyword in opts:
+                    setattr(self.opts, keyword, opts.pop(keyword))
 
         data = self.convert(obj)
         format = format or self.opts.format

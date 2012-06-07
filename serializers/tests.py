@@ -21,13 +21,13 @@ def expand(obj):
     return obj
 
 
-def get_deserialized(queryset, serializer=None):
+def get_deserialized(queryset, serializer=None, **kwargs):
     if serializer:
         # django-serializers
-        serialized = serializer.serialize(queryset, format='json')
+        serialized = serializer.serialize(queryset, format='json', **kwargs)
         return serializer.deserialize(serialized, format='json')
     # Existing Django serializers
-    serialized = serializers.serialize('json', queryset)
+    serialized = serializers.serialize('json', queryset, **kwargs)
     return serializers.deserialize('json', serialized)
 
 
@@ -41,6 +41,13 @@ def deserialized_eq(objects1, objects2):
             return False
         if objects1[index].m2m_data != objects2[index].m2m_data:
             return False
+        object1 = objects1[index].object
+        object2 = objects2[index].object
+        for field in object1._meta.fields:
+            if getattr(object1, field.attname) != getattr(object2, field.attname):
+                print getattr(object1, field.attname) != getattr(object2, field.attname)
+                return False
+
     return True
 
 
@@ -622,6 +629,11 @@ class TestSimpleModel(SerializationTestCase):
             self.dumpdata.serialize(RaceEntry.objects.all(), 'json', fields=('name', 'runner_number')),
             serializers.serialize('json', RaceEntry.objects.all(), fields=('name', 'runner_number'))
         )
+
+    def test_deserialize_fields(self):
+        lhs = get_deserialized(RaceEntry.objects.all(), serializer=self.dumpdata, fields=('runner_number',))
+        rhs = get_deserialized(RaceEntry.objects.all(), fields=('runner_number',))
+        self.assertTrue(deserialized_eq(lhs, rhs))
 
     def test_modelserializer_deserialize(self):
         lhs = get_deserialized(RaceEntry.objects.all(), serializer=self.serializer)
