@@ -620,6 +620,11 @@ class TestSimpleModel(SerializationTestCase):
         rhs = get_deserialized(RaceEntry.objects.all())
         self.assertTrue(deserialized_eq(lhs, rhs))
 
+    def test_dumpdata_deserialize(self):
+        lhs = get_deserialized(RaceEntry.objects.all(), serializer=self.dumpdata)
+        rhs = get_deserialized(RaceEntry.objects.all())
+        self.assertTrue(deserialized_eq(lhs, rhs))
+
 
 class TestNullPKModel(SerializationTestCase):
     def setUp(self):

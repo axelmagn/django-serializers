@@ -2,6 +2,7 @@ import datetime
 from django.utils.encoding import is_protected_type, smart_unicode
 from django.core import validators
 from django.core.exceptions import ValidationError
+from django.core.serializers.base import DeserializationError
 from django.conf import settings
 from django.db.models.related import RelatedObject
 from django.db import models
@@ -64,16 +65,32 @@ class Field(object):
 
 class ModelField(Field):
     def convert_field(self, obj, field_name):
-        field = obj._meta.get_field_by_name(self.field_name)[0]
-        value = field._get_val_from_obj(obj)
-        # Protected types (i.e., primitives like None, numbers, dates,
-        # and Decimals) are passed through as is. All other values are
-        # converted to string first.
-        self.field = field
-        if is_protected_type(value):
-            return value
-        else:
-            return field.value_to_string(obj)
+        try:
+            self.field = obj._meta.get_field_by_name(self.field_name)[0]
+        except:
+            pass
+        return super(ModelField, self).convert_field(obj, field_name)
+
+        # value = field._get_val_from_obj(obj)
+        # # Protected types (i.e., primitives like None, numbers, dates,
+        # # and Decimals) are passed through as is. All other values are
+        # # converted to string first.
+        # self.field = field
+        # if is_protected_type(value):
+        #     return value
+        # else:
+        #     return field.value_to_string(obj)
+    # def convert_field(self, obj, field_name):
+    #     field = obj._meta.get_field_by_name(self.field_name)[0]
+    #     value = field._get_val_from_obj(obj)
+    #     # Protected types (i.e., primitives like None, numbers, dates,
+    #     # and Decimals) are passed through as is. All other values are
+    #     # converted to string first.
+    #     self.field = field
+    #     if is_protected_type(value):
+    #         return value
+    #     else:
+    #         return field.value_to_string(obj)
 
     def attributes(self):
         return {
@@ -187,7 +204,17 @@ class ModelNameField(Field):
     def convert_field(self, obj, field_name):
         return smart_unicode(obj._meta)
 
-# Blah
+    def revert(self, value):
+        """
+        Look up the model class from an "app_label.module_name" string.
+        """
+        try:
+            Model = models.get_model(*value.split("."))
+        except TypeError:
+            Model = None
+        if Model is None:
+            raise DeserializationError(u"Invalid model identifier: '%s'" % value)
+        return Model
 
 
 class BooleanField(ModelField):
@@ -325,7 +352,3 @@ field_mapping = {
 
 def modelfield_to_serializerfield(field):
     return field_mapping.get(type(field), ModelField)
-    # for from_class, to_class in field_mapping.items():
-    #     if isinstance(field, from_class):
-    #         return to_class
-    # return ModelField
