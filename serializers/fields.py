@@ -40,6 +40,9 @@ class Field(object):
     def revert_field(self, data, field_name, into):
         into[field_name] = self.revert(data.get(field_name))
 
+    def revert(self, value):
+        raise NotImplemented
+
     def convert_field(self, obj, field_name):
         """
         Given the parent object and the field name, returns the field value
