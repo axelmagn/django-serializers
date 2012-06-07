@@ -14,7 +14,8 @@ from serializers.renderers import (
     DumpDataXMLRenderer
 )
 from serializers.parsers import (
-    JSONParser
+    JSONParser,
+    DumpDataXMLParser
 )
 from serializers.fields import *
 from serializers.utils import (
@@ -514,6 +515,10 @@ class DumpDataSerializer(ModelSerializer):
             'xml': DumpDataXMLRenderer,
             'json': JSONRenderer,
             'yaml': YAMLRenderer,
+        }
+        parser_classes = {
+            'xml': DumpDataXMLParser,
+            'json': JSONParser
         }
 
     def revert_class(self, data):

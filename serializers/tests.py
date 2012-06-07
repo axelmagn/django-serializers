@@ -21,14 +21,15 @@ def expand(obj):
     return obj
 
 
-def get_deserialized(queryset, serializer=None, **kwargs):
+def get_deserialized(queryset, serializer=None, format=None, **kwargs):
+    format = format or 'json'
     if serializer:
         # django-serializers
-        serialized = serializer.serialize(queryset, format='json', **kwargs)
-        return serializer.deserialize(serialized, format='json')
+        serialized = serializer.serialize(queryset, format=format, **kwargs)
+        return serializer.deserialize(serialized, format=format)
     # Existing Django serializers
-    serialized = serializers.serialize('json', queryset, **kwargs)
-    return serializers.deserialize('json', serialized)
+    serialized = serializers.serialize(format, queryset, **kwargs)
+    return serializers.deserialize(format, serialized)
 
 
 def deserialized_eq(objects1, objects2):
@@ -644,6 +645,11 @@ class TestSimpleModel(SerializationTestCase):
         lhs = get_deserialized(RaceEntry.objects.all(), serializer=self.dumpdata)
         rhs = get_deserialized(RaceEntry.objects.all())
         self.assertTrue(deserialized_eq(lhs, rhs))
+
+    # def test_xml_parsing(self):
+    #     data = self.dumpdata.serialize(RaceEntry.objects.all(), 'xml')
+    #     object = list(self.dumpdata.deserialize(data, 'xml'))[0].object
+    #     print repr((object.name, object.runner_number, object.start_time, object.finish_time))
 
 
 class TestNullPKModel(SerializationTestCase):
