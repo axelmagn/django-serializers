@@ -617,6 +617,12 @@ class TestSimpleModel(SerializationTestCase):
             expected
         )
 
+    def test_simple_dumpdata_fields(self):
+        self.assertEquals(
+            self.dumpdata.serialize(RaceEntry.objects.all(), 'json', fields=('name', 'runner_number')),
+            serializers.serialize('json', RaceEntry.objects.all(), fields=('name', 'runner_number'))
+        )
+
     def test_modelserializer_deserialize(self):
         lhs = get_deserialized(RaceEntry.objects.all(), serializer=self.serializer)
         rhs = get_deserialized(RaceEntry.objects.all())

@@ -139,7 +139,7 @@ class BaseSerializer(Field):
         label = kwargs.get('label', None)
         convert = kwargs.get('convert', None)
         super(BaseSerializer, self).__init__(label=label, convert=convert)
-        self.fields = SortedDict((key, copy.copy(field))
+        self.fields = SortedDict((key, copy.deepcopy(field))
                            for key, field in self.base_fields.items())
 
         # If one of our fields has 'is_root' set, pass through some of our args
@@ -332,6 +332,13 @@ class BaseSerializer(Field):
         self.root = None
         self.stack = []
         self.options = opts
+
+        # If one of our fields has 'is_root' set, pass through some of our args
+        for key, field in self.fields.items():
+            if hasattr(field, 'opts') and getattr(field.opts, 'is_root', None):
+                for keyword in ('fields', 'include', 'exclude', 'nested'):
+                    if keyword in opts:
+                        setattr(field.opts, keyword, opts.pop(keyword))
 
         data = self.convert(obj)
         format = format or self.opts.format
