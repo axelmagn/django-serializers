@@ -46,7 +46,6 @@ def deserialized_eq(objects1, objects2):
         object2 = objects2[index].object
         for field in object1._meta.fields:
             if getattr(object1, field.attname) != getattr(object2, field.attname):
-                print getattr(object1, field.attname) != getattr(object2, field.attname)
                 return False
 
     return True
@@ -751,6 +750,11 @@ class TestModelInheritance(SerializationTestCase):
     def test_dumpdata_deserialize(self):
         lhs = get_deserialized(PremiumAccount.objects.all(), serializer=self.dumpdata)
         rhs = get_deserialized(PremiumAccount.objects.all())
+        self.assertTrue(deserialized_eq(lhs, rhs))
+
+    def test_dumpdata_deserialize_xml(self):
+        lhs = get_deserialized(PremiumAccount.objects.all(), format='xml', serializer=self.dumpdata)
+        rhs = get_deserialized(PremiumAccount.objects.all(), format='xml')
         self.assertTrue(deserialized_eq(lhs, rhs))
 
 
