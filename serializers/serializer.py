@@ -1,4 +1,5 @@
 from decimal import Decimal
+from django.core.serializers.base import DeserializedObject
 from django.db.models.fields import FieldDoesNotExist
 from django.utils.datastructures import SortedDict
 import copy
@@ -252,7 +253,7 @@ class BaseSerializer(Field):
         reverted = {}
         for field_name, field in fields.items():
             reverted[field_name] = field.revert_field(data, field_name)
-        return self.opts.model(**reverted)
+        return DeserializedObject(self.opts.model(**reverted))
 
     def _convert_iterable(self, obj):
         for item in obj:

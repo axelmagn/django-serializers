@@ -32,6 +32,8 @@ def get_deserialized(queryset, serializer=None):
 
 
 def deserialized_eq(objects1, objects2):
+    objects1 = list(objects1)
+    objects2 = list(objects2)
     if len(objects1) != len(objects2):
         return False
     for index in range(len(objects1)):
@@ -577,7 +579,7 @@ class RaceEntry(models.Model):
 class TestSimpleModel(SerializationTestCase):
     def setUp(self):
         self.dumpdata = DumpDataSerializer()
-        self.serializer = ModelSerializer()
+        self.serializer = ModelSerializer(model=RaceEntry)
         RaceEntry.objects.create(
             name='John doe',
             runner_number=6014,
@@ -613,15 +615,10 @@ class TestSimpleModel(SerializationTestCase):
             expected
         )
 
-    # def test_deserialize(self):
-    #     stream = self.serializer.serialize(RaceEntry.objects.all(), 'json')
-    #     print self.serializer.deserialize(stream, 'json')
-        #serializers.serialize('json', RaceEntry.objects.all())
-        # obj = list(get_deserialized(RaceEntry.objects.all()))
-        # obj2 = list(get_deserialized(RaceEntry.objects.all()))
-
-        # print get_deserialized(RaceEntry.objects.all(), serializer=ModelSerializer())
-        # print deserialized_eq(obj, obj2)
+    def test_modelserializer_deserialize(self):
+        lhs = get_deserialized(RaceEntry.objects.all(), serializer=self.serializer)
+        rhs = get_deserialized(RaceEntry.objects.all())
+        self.assertTrue(deserialized_eq(lhs, rhs))
 
 
 class TestNullPKModel(SerializationTestCase):

@@ -215,6 +215,13 @@ class CharField(ModelField):
 
 
 class DateField(ModelField):
+    error_messages = {
+        'invalid': _(u"'%s' value has an invalid date format. It must be "
+                     u"in YYYY-MM-DD format."),
+        'invalid_date': _(u"'%s' value has the correct format (YYYY-MM-DD) "
+                          u"but it is an invalid date."),
+    }
+
     def revert(self, value):
         if value is None:
             return value
@@ -241,6 +248,16 @@ class DateField(ModelField):
 
 
 class DateTimeField(ModelField):
+    error_messages = {
+        'invalid': _(u"'%s' value has an invalid format. It must be in "
+                     u"YYYY-MM-DD HH:MM[:ss[.uuuuuu]][TZ] format."),
+        'invalid_date': _(u"'%s' value has the correct format "
+                          u"(YYYY-MM-DD) but it is an invalid date."),
+        'invalid_datetime': _(u"'%s' value has the correct format "
+                              u"(YYYY-MM-DD HH:MM[:ss[.uuuuuu]][TZ]) "
+                              u"but it is an invalid date/time."),
+    }
+
     def revert(self, value):
         if value is None:
             return value
@@ -299,14 +316,16 @@ field_mapping = {
     models.AutoField: IntegerField,
     models.BooleanField: BooleanField,
     models.CharField: CharField,
+    models.DateTimeField: DateTimeField,  # Needs to be before DateField!
     models.DateField: DateField,
-    models.DateTimeField: DateTimeField,
     models.IntegerField: IntegerField,
+    models.PositiveIntegerField: IntegerField
 }
 
 
 def modelfield_to_serializerfield(field):
-    for from_class, to_class in field_mapping.items():
-        if isinstance(field, from_class):
-            return to_class
-    return ModelField
+    return field_mapping.get(type(field), ModelField)
+    # for from_class, to_class in field_mapping.items():
+    #     if isinstance(field, from_class):
+    #         return to_class
+    # return ModelField
