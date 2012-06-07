@@ -646,6 +646,11 @@ class TestSimpleModel(SerializationTestCase):
         rhs = get_deserialized(RaceEntry.objects.all())
         self.assertTrue(deserialized_eq(lhs, rhs))
 
+    def test_dumpdata_deserialize_xml(self):
+        lhs = get_deserialized(RaceEntry.objects.all(), format='xml', serializer=self.dumpdata)
+        rhs = get_deserialized(RaceEntry.objects.all(), format='xml')
+        self.assertTrue(deserialized_eq(lhs, rhs))
+
     # def test_xml_parsing(self):
     #     data = self.dumpdata.serialize(RaceEntry.objects.all(), 'xml')
     #     object = list(self.dumpdata.deserialize(data, 'xml'))[0].object
