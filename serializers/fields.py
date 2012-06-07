@@ -169,7 +169,7 @@ class PrimaryKeyRelatedField(RelatedField):
             raise
         if obj.__class__.__name__ == 'ManyRelatedManager':
             return [self.convert(item.pk) for item in obj.all()]
-        return obj
+        return self.convert(obj)
 
     def revert_field(self, data, field_name, into):
         # Hack!
