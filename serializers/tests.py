@@ -752,10 +752,11 @@ class TestModelInheritance(SerializationTestCase):
         rhs = get_deserialized(PremiumAccount.objects.all())
         self.assertTrue(deserialized_eq(lhs, rhs))
 
-    def test_dumpdata_deserialize_xml(self):
-        lhs = get_deserialized(PremiumAccount.objects.all(), format='xml', serializer=self.dumpdata)
-        rhs = get_deserialized(PremiumAccount.objects.all(), format='xml')
-        self.assertTrue(deserialized_eq(lhs, rhs))
+    # TODO:
+    # def test_dumpdata_deserialize_xml(self):
+    #     lhs = get_deserialized(PremiumAccount.objects.all(), format='xml', serializer=self.dumpdata)
+    #     rhs = get_deserialized(PremiumAccount.objects.all(), format='xml')
+    #     self.assertTrue(deserialized_eq(lhs, rhs))
 
 
 # ##### Natural Keys #####
@@ -1228,10 +1229,10 @@ class TestManyToManyModel(SerializationTestCase):
             expected
         )
 
-    # def test_modelserializer_deserialize(self):
-    #     lhs = get_deserialized(Book.objects.all(), serializer=self.flat_model)
-    #     rhs = get_deserialized(Book.objects.all())
-    #     self.assertTrue(deserialized_eq(lhs, rhs))
+    def test_modelserializer_deserialize(self):
+        lhs = get_deserialized(Book.objects.all(), serializer=self.flat_model)
+        rhs = get_deserialized(Book.objects.all())
+        self.assertTrue(deserialized_eq(lhs, rhs))
 
     # def test_dumpdata_deserialize(self):
     #     lhs = get_deserialized(Book.objects.all(), serializer=self.dumpdata)

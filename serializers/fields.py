@@ -147,11 +147,6 @@ class PrimaryKeyRelatedField(RelatedField):
     def revert(self, value):
         # self.field = self.obj._meta.get_field_by_name(self.field_name)[0]
         # print self.field.rel.to._meta.get_field(self.field.rel.field_name).to_python(value)
-
-        # # Bit of a hack to deal with many-related
-        # if hasattr(value, '__iter__'):
-        #     return [self.revert(item) for item in value]
-
         if value in validators.EMPTY_VALUES:
             return None
         try:
@@ -178,7 +173,11 @@ class PrimaryKeyRelatedField(RelatedField):
 
     def revert_field(self, data, field_name, into):
         # Hack!
-        into[field_name + '_id'] = self.revert(data.get(field_name))
+        value = data.get(field_name)
+        if hasattr(value, '__iter__'):
+            into[field_name] = [self.revert(item) for item in value]
+        else:
+            into[field_name + '_id'] = self.revert(value)
 
 
 # class ManyPrimaryKeyRelatedField(PrimaryKeyRelatedField):
