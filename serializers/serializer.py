@@ -483,8 +483,13 @@ class ModelSerializer(RelatedField, Serializer):
         return self.opts.model
 
     def revert_object(self, data):
-        obj = super(ModelSerializer, self).revert_object(data)
-        return DeserializedObject(obj, {})
+        Model = self.revert_class(data)
+        reverted_data = self.revert_fields(data, Model)
+        m2m_data = {}
+        for field in Model._meta.many_to_many:
+            if field.name in reverted_data:
+                m2m_data[field.name] = reverted_data.pop(field.name)
+        return DeserializedObject(Model(**reverted_data), m2m_data)
 
 
 class DumpDataFields(ModelSerializer):

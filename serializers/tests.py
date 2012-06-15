@@ -40,8 +40,14 @@ def deserialized_eq(objects1, objects2):
     for index in range(len(objects1)):
         if objects1[index].object != objects2[index].object:
             return False
-        if objects1[index].m2m_data != objects2[index].m2m_data:
+        if objects1[index].m2m_data.keys() != objects2[index].m2m_data.keys():
             return False
+        m2m_data1 = objects1[index].m2m_data
+        m2m_data2 = objects2[index].m2m_data
+        for field_name in m2m_data1.keys():
+            if set([int(m2m) for m2m in m2m_data1[field_name]]) != \
+                set([int(m2m) for m2m in m2m_data2[field_name]]):
+                return False
         object1 = objects1[index].object
         object2 = objects2[index].object
         for field in object1._meta.fields:
@@ -1234,10 +1240,10 @@ class TestManyToManyModel(SerializationTestCase):
         rhs = get_deserialized(Book.objects.all())
         self.assertTrue(deserialized_eq(lhs, rhs))
 
-    # def test_dumpdata_deserialize(self):
-    #     lhs = get_deserialized(Book.objects.all(), serializer=self.dumpdata)
-    #     rhs = get_deserialized(Book.objects.all())
-    #     self.assertTrue(deserialized_eq(lhs, rhs))
+    def test_dumpdata_deserialize(self):
+        lhs = get_deserialized(Book.objects.all(), serializer=self.dumpdata)
+        rhs = get_deserialized(Book.objects.all())
+        self.assertTrue(deserialized_eq(lhs, rhs))
 
 
 class Anchor(models.Model):
