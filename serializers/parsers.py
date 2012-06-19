@@ -5,7 +5,11 @@ from django.core.serializers.base import DeserializationError
 
 class JSONParser(object):
     def parse(self, stream):
-        return json.load(stream)
+        try:
+            return json.load(stream)
+        except Exception as e:
+            # Map to deserializer error
+            raise DeserializationError(e)
 
 
 class DumpDataXMLParser(object):
