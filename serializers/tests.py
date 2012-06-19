@@ -1,10 +1,12 @@
 import datetime
+from decimal import Decimal
 from django.core import serializers
 from django.db import models
 from django.test import TestCase
 from django.utils.datastructures import SortedDict
 from serializers import ObjectSerializer, ModelSerializer, DumpDataSerializer
 from serializers.fields import Field, NaturalKeyRelatedField
+from io import BytesIO
 
 
 def expand(obj):
@@ -1296,10 +1298,137 @@ class FieldsTest(SerializationTestCase):
         obj = ComplexModel(field1='first', field2='second', field3='third')
 
         # Serialize then deserialize the test database
-        serialized_data = DumpDataSerializer().serialize([obj], 'json', indent=2, fields=('field1','field3'))
+        serialized_data = DumpDataSerializer().serialize([obj], 'json', indent=2, fields=('field1', 'field3'))
         result = next(DumpDataSerializer().deserialize(serialized_data, 'json'))
 
         # Check that the deserialized object contains data in only the serialized fields.
         self.assertEqual(result.object.field1, 'first')
         self.assertEqual(result.object.field2, '')
         self.assertEqual(result.object.field3, 'third')
+
+
+class Actor(models.Model):
+    name = models.CharField(max_length=20, primary_key=True)
+
+    class Meta:
+        ordering = ('name',)
+
+    def __unicode__(self):
+        return self.name
+
+
+class Movie(models.Model):
+    actor = models.ForeignKey(Actor)
+    title = models.CharField(max_length=50)
+    price = models.DecimalField(max_digits=6, decimal_places=2, default=Decimal('0.00'))
+
+    class Meta:
+        ordering = ('title',)
+
+    def __unicode__(self):
+        return self.title
+
+
+class NonIntegerPKTests(SerializationTestCase):
+    def test_unicode(self):
+        actor_name = u"Za\u017c\u00f3\u0142\u0107"
+        movie_title = u'G\u0119\u015bl\u0105 ja\u017a\u0144'
+        ac = Actor(name=actor_name)
+        mv = Movie(title=movie_title, actor=ac)
+        ac.save()
+        mv.save()
+
+        serial_str = DumpDataSerializer().serialize([mv], format='json')
+        self.assertEqual(serializers.serialize('json', [mv]), serial_str)
+
+        obj_list = list(DumpDataSerializer().deserialize(serial_str, format='json'))
+        mv_obj = obj_list[0].object
+        self.assertEqual(mv_obj.title, movie_title)
+
+
+class Category(models.Model):
+    name = models.CharField(max_length=20)
+
+    class Meta:
+        ordering = ('name',)
+
+    def __unicode__(self):
+        return self.name
+
+
+class ArticleAuthor(models.Model):
+    name = models.CharField(max_length=20)
+
+    class Meta:
+        ordering = ('name',)
+
+    def __unicode__(self):
+        return self.name
+
+
+class Article(models.Model):
+    author = models.ForeignKey(ArticleAuthor)
+    headline = models.CharField(max_length=50)
+    pub_date = models.DateTimeField()
+    categories = models.ManyToManyField(Category)
+
+    class Meta:
+        ordering = ('pub_date', )
+
+    def __unicode__(self):
+        return self.headline
+
+
+class TestRoundtrips(SerializationTestCase):
+    def setUp(self):
+        sports = Category.objects.create(name="Sports")
+        music = Category.objects.create(name="Music")
+        op_ed = Category.objects.create(name="Op-Ed")
+
+        self.joe = ArticleAuthor.objects.create(name="Joe")
+        self.jane = ArticleAuthor.objects.create(name="Jane")
+
+        self.a1 = Article(
+            author=self.jane,
+            headline="Poker has no place on ESPN",
+            pub_date=datetime.datetime(2006, 6, 16, 11, 00)
+        )
+        self.a1.save()
+        self.a1.categories = [sports, op_ed]
+
+        self.a2 = Article(
+            author=self.joe,
+            headline="Time to reform copyright",
+            pub_date=datetime.datetime(2006, 6, 16, 13, 00, 11, 345)
+        )
+        self.a2.save()
+        self.a2.categories = [music, op_ed]
+
+    def test_serializer_roundtrip(self):
+        """Tests that serialized content can be deserialized."""
+        serial_str = DumpDataSerializer().serialize(Article.objects.all(), format='xml')
+        models = list(DumpDataSerializer().deserialize(serial_str, format='xml'))
+        self.assertEqual(len(models), 2)
+
+    def test_altering_serialized_output(self):
+        """
+        Tests the ability to create new objects by
+        modifying serialized content.
+        """
+        old_headline = "Poker has no place on ESPN"
+        new_headline = "Poker has no place on television"
+        serial_str = DumpDataSerializer().serialize(Article.objects.all(), format='xml')
+
+        serial_str = serial_str.replace(old_headline, new_headline)
+        models = list(DumpDataSerializer().deserialize(serial_str, format='xml'))
+
+        # Prior to saving, old headline is in place
+        self.assertTrue(Article.objects.filter(headline=old_headline))
+        self.assertFalse(Article.objects.filter(headline=new_headline))
+
+        for model in models:
+            model.save()
+
+        # After saving, new headline is in place
+        self.assertTrue(Article.objects.filter(headline=new_headline))
+        self.assertFalse(Article.objects.filter(headline=old_headline))

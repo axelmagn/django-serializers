@@ -3,7 +3,6 @@ from xml.dom import pulldom
 from django.core.serializers.base import DeserializationError
 
 
-
 class JSONParser(object):
     def parse(self, stream):
         return json.load(stream)
@@ -28,14 +27,17 @@ class DumpDataXMLParser(object):
 
         fields = {}
         for field_node in node.getElementsByTagName("field"):
-            # If the field is missing the name attribute, bail (are you
-            # sensing a pattern here?)
+            # If the field is missing the name attribute, bail
             name = field_node.getAttribute("name")
             if not name:
                 raise DeserializationError("<field> node is missing the 'name' attribute")
 
             if field_node.getElementsByTagName('None'):
                 value = None
+            elif field_node.getElementsByTagName('object'):
+                value = [n.getAttribute('pk') for n in field_node.getElementsByTagName('object')]
+            # elif field_node.getElementsByTagName('natural'):
+            #     value = [getInnerText(n).strip() for n in field_node.getElementsByTagName('natural')]
             else:
                 value = getInnerText(field_node).strip()
 

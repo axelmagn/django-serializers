@@ -147,12 +147,12 @@ class PrimaryKeyRelatedField(RelatedField):
     def revert(self, value):
         # self.field = self.obj._meta.get_field_by_name(self.field_name)[0]
         # print self.field.rel.to._meta.get_field(self.field.rel.field_name).to_python(value)
-        if value in validators.EMPTY_VALUES:
-            return None
-        try:
-            value = int(value)
-        except (ValueError, TypeError):
-            raise ValidationError(self.error_messages['invalid'])
+        # if value in validators.EMPTY_VALUES:
+        #     return None
+        # try:
+        #     value = int(value)
+        # except (ValueError, TypeError):
+        #     raise ValidationError(self.error_messages['invalid'])
         return value
 
     def convert_field(self, obj, field_name):
@@ -178,12 +178,6 @@ class PrimaryKeyRelatedField(RelatedField):
             into[field_name] = [self.revert(item) for item in value]
         else:
             into[field_name + '_id'] = self.revert(value)
-
-
-# class ManyPrimaryKeyRelatedField(PrimaryKeyRelatedField):
-#     def revert(self, value):
-#         return [super(ManyPrimaryKeyRelatedField, self).revert(item)
-#                 for item in value]
 
 
 class NaturalKeyRelatedField(RelatedField):
