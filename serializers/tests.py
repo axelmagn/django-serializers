@@ -6,7 +6,6 @@ from django.test import TestCase
 from django.utils.datastructures import SortedDict
 from serializers import ObjectSerializer, ModelSerializer, DumpDataSerializer
 from serializers.fields import Field, NaturalKeyRelatedField
-from io import BytesIO
 
 
 def expand(obj):
@@ -769,6 +768,16 @@ class TestModelInheritance(SerializationTestCase):
 
 # ##### Natural Keys #####
 
+class PetOwnerManager(models.Manager):
+    def get_by_natural_key(self, first_name, last_name):
+        return self.get(first_name=first_name, last_name=last_name)
+
+
+class PetManager(models.Manager):
+    def get_by_natural_key(self, name):
+        return self.get(name=name)
+
+
 class PetOwner(models.Model):
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
@@ -780,6 +789,8 @@ class PetOwner(models.Model):
     class Meta:
         unique_together = (('first_name', 'last_name'),)
 
+    objects = PetOwnerManager()
+
 
 class Pet(models.Model):
     name = models.CharField(max_length=100)
@@ -787,6 +798,8 @@ class Pet(models.Model):
 
     def natural_key(self):
         return self.name
+
+    objects = PetManager()
 
 
 class TestNaturalKey(SerializationTestCase):
@@ -884,6 +897,15 @@ class TestNaturalKey(SerializationTestCase):
             expected
         )
 
+    # def test_modelserializer_deserialize(self):
+    #     lhs = get_deserialized(PetOwner.objects.all(), serializer=self.serializer)
+    #     rhs = get_deserialized(PetOwner.objects.all())
+    #     self.assertTrue(deserialized_eq(lhs, rhs))
+
+    def test_dumpdata_deserialize(self):
+        lhs = get_deserialized(Pet.objects.all(), serializer=self.dumpdata, use_natural_keys=True)
+        rhs = get_deserialized(Pet.objects.all(), use_natural_keys=True)
+        self.assertTrue(deserialized_eq(lhs, rhs))
 
 ##### One to one relationships #####
 

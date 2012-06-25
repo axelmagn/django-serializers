@@ -33,11 +33,12 @@ class Field(object):
         self.root = parent.root or parent
         return self.convert_field(obj, field_name)
 
-    def _revert_field(self, data, field_name, into, parent):
+    def _revert_field(self, data, field_name, into, parent, cls):
         self.parent = parent
-        self.revert_field(data, field_name, into)
+        #self.root = parent.root or parent
+        self.revert_field(data, field_name, into, cls)
 
-    def revert_field(self, data, field_name, into):
+    def revert_field(self, data, field_name, into, cls):
         if not field_name in data:
             return
         into[field_name] = self.revert(data.get(field_name))
@@ -171,8 +172,7 @@ class PrimaryKeyRelatedField(RelatedField):
             return [self.convert(item.pk) for item in obj.all()]
         return self.convert(obj)
 
-    def revert_field(self, data, field_name, into):
-        # Hack!
+    def revert_field(self, data, field_name, into, cls):
         value = data.get(field_name)
         if hasattr(value, '__iter__'):
             into[field_name] = [self.revert(item) for item in value]
@@ -197,7 +197,6 @@ class PrimaryKeyOrNaturalKeyRelatedField(PrimaryKeyRelatedField):
     Serializes to either pk or natural key, depending on if 'use_natural_keys'
     is specified when calling `serialize()`.
     """
-
     def convert_field(self, obj, field_name):
         if self.root.options.get('use_natural_keys', False):
             self.is_natural_key = True
@@ -216,6 +215,22 @@ class PrimaryKeyOrNaturalKeyRelatedField(PrimaryKeyRelatedField):
             return obj.natural_key()
         return obj
 
+    def revert_field(self, data, field_name, into, cls):
+        model_field = cls._meta.get_field_by_name(field_name)[0]
+        value = data.get(field_name)
+        if hasattr(model_field.rel.to._default_manager, 'get_by_natural_key') and hasattr(value, '__iter__'):
+            return self.revert_field_natural_key(data, field_name, into, model_field)
+        return super(PrimaryKeyOrNaturalKeyRelatedField, self).revert_field(data, field_name, into, cls)
+
+    def revert_field_natural_key(self, data, field_name, into, model_field):
+        value = data.get(field_name)
+        into[model_field.attname] = self.revert_natural_key(value, model_field)
+
+    def revert_natural_key(self, value, model_field):
+        # TODO: Support 'using' : db = options.pop('using', DEFAULT_DB_ALIAS)
+        from django.db import DEFAULT_DB_ALIAS
+        return model_field.rel.to._default_manager.db_manager(DEFAULT_DB_ALIAS).get_by_natural_key(*value).pk
+
 
 class ModelNameField(Field):
     """
@@ -224,7 +239,7 @@ class ModelNameField(Field):
     def convert_field(self, obj, field_name):
         return smart_unicode(obj._meta)
 
-    def revert_field(self, data, field_name, into):
+    def revert_field(self, data, field_name, into, cls):
         # We don't actually want to restore the model name metadata to a field.
         pass
 
@@ -369,9 +384,9 @@ field_mapping = {
     models.AutoField: IntegerField,
     models.BooleanField: BooleanField,
     models.CharField: CharField,
-    models.DateTimeField: DateTimeField,  # Needs to be before DateField!
+    models.DateTimeField: DateTimeField,
     models.DateField: DateField,
-    models.BigIntegerField: IntegerField,  # Before IntegerField
+    models.BigIntegerField: IntegerField,
     models.IntegerField: IntegerField,
     models.PositiveIntegerField: IntegerField,
     models.FloatField: FloatField

@@ -229,12 +229,13 @@ class BaseSerializer(Field):
             return self.convert(obj)
         return super(BaseSerializer, self)._convert_field(obj, field_name, parent)
 
-    def _revert_field(self, data, field_name, into, parent):
+    def _revert_field(self, data, field_name, into, parent, cls):
         self.orig_data = data
         self.parent = parent
-        self.revert_field(data, field_name, into)
+        #self.root = parent.root or parent
+        self.revert_field(data, field_name, into, cls)
 
-    def revert_field(self, data, field_name, into):
+    def revert_field(self, data, field_name, into, cls):
         field_data = self.revert(data.get(field_name))
         if self.opts.is_root:
             into.update(field_data)
@@ -270,7 +271,7 @@ class BaseSerializer(Field):
         fields = self.get_fields(cls, nested=self.opts.nested)
         reverted_data = {}
         for field_name, field in fields.items():
-            field._revert_field(data, field_name, reverted_data, self)
+            field._revert_field(data, field_name, reverted_data, self, cls)
         return reverted_data
 
     def revert_object(self, data):
@@ -368,6 +369,8 @@ class BaseSerializer(Field):
     def deserialize(self, stream_or_string, format=None):
         """
         """
+        #self.root = None
+
         format = format or self.opts.format
         if format:
             if isinstance(stream_or_string, basestring):
