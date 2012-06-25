@@ -907,6 +907,7 @@ class TestNaturalKey(SerializationTestCase):
         rhs = get_deserialized(Pet.objects.all(), use_natural_keys=True)
         self.assertTrue(deserialized_eq(lhs, rhs))
 
+
 ##### One to one relationships #####
 
 class User(models.Model):

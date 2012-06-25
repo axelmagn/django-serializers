@@ -40,8 +40,8 @@ class DumpDataXMLParser(object):
                 value = None
             elif field_node.getElementsByTagName('object'):
                 value = [n.getAttribute('pk') for n in field_node.getElementsByTagName('object')]
-            # elif field_node.getElementsByTagName('natural'):
-            #     value = [getInnerText(n).strip() for n in field_node.getElementsByTagName('natural')]
+            elif field_node.getElementsByTagName('natural'):
+                value = [getInnerText(n).strip() for n in field_node.getElementsByTagName('natural')]
             else:
                 value = getInnerText(field_node).strip()
 
