@@ -5,8 +5,8 @@ from django.utils.timezone import is_aware
 import csv
 import datetime
 import decimal
-import json
 import types
+from django.utils import simplejson as json
 
 
 class DictWithMetadata(dict):
