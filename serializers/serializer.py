@@ -115,7 +115,7 @@ class ModelSerializerOptions(SerializerOptions):
     def __init__(self, meta, **kwargs):
         super(ModelSerializerOptions, self).__init__(meta, **kwargs)
         self.model_field_types = _get_option('model_field_types', kwargs, meta, None)
-        self.model_field = _get_option('model_field', kwargs, meta, ModelField)
+        self.model_field = _get_option('model_field', kwargs, meta, Field)
         self.non_model_field = _get_option('non_model_field', kwargs, meta, Field)
         self.related_field = _get_option('related_field', kwargs, meta, PrimaryKeyRelatedField)
         self.nested_related_field = _get_option('nested_related_field', kwargs, meta, None)

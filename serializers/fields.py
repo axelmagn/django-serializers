@@ -51,52 +51,37 @@ class Field(object):
         Given the parent object and the field name, returns the field value
         that should be serialized.
         """
+        try:
+            self.field = obj._meta.get_field_by_name(self.field_name)[0]
+        except:
+            pass
         return self.convert(getattr(obj, field_name))
 
     def convert(self, obj):
         """
         Converts the field's value into it's simple representation.
         """
+        if is_simple_callable(obj):
+            obj = obj()
+
+        if hasattr(obj, '__iter__'):
+            return [self.convert(item) for item in obj]
+
         if is_protected_type(obj):
             return obj
-        elif is_simple_callable(obj):
-            return self.convert(obj())
-        elif isinstance(obj, dict):
-            return dict([(key, self.convert(val))
-                         for (key, val) in obj.items()])
-        elif hasattr(obj, '__iter__'):
-            return [self.convert(item) for item in obj]
+        elif hasattr(self, 'field'):
+            return self.field.value_to_string(self.obj)
         return smart_unicode(obj)
 
     def attributes(self):
+        if hasattr(self, 'field'):
+            return {
+                "type": self.field.get_internal_type()
+            }
         return {}
 
 
-class ModelField(Field):
-    def convert_field(self, obj, field_name):
-        try:
-            self.field = obj._meta.get_field_by_name(self.field_name)[0]
-        except:
-            return super(ModelField, self).convert_field(obj, field_name)
-
-        # TODO: Possible to cut some of this out?  Required to make the tests pass right now.
-        value = self.field._get_val_from_obj(obj)
-
-        if is_protected_type(value):
-            return value
-        else:
-            return self.field.value_to_string(obj)
-
-    # def revert_field(self, data, field_name, into):
-    #     into[field_name] = self.revert(data.get(field_name))
-
-    def attributes(self):
-        return {
-            "type": self.field.get_internal_type()
-        }
-
-
-class RelatedField(ModelField):
+class RelatedField(Field):
     """
     A base class for model related fields or related managers.
 
@@ -244,7 +229,7 @@ class ModelNameField(Field):
         pass
 
 
-class BooleanField(ModelField):
+class BooleanField(Field):
     error_messages = {
         'invalid': _(u"'%s' value must be either True or False."),
     }
@@ -261,14 +246,14 @@ class BooleanField(ModelField):
         raise ValidationError(self.error_messages['invalid'] % value)
 
 
-class CharField(ModelField):
+class CharField(Field):
     def revert(self, value):
         if isinstance(value, basestring) or value is None:
             return value
         return smart_unicode(value)
 
 
-class DateField(ModelField):
+class DateField(Field):
     error_messages = {
         'invalid': _(u"'%s' value has an invalid date format. It must be "
                      u"in YYYY-MM-DD format."),
@@ -301,7 +286,7 @@ class DateField(ModelField):
         raise ValidationError(msg)
 
 
-class DateTimeField(ModelField):
+class DateTimeField(Field):
     error_messages = {
         'invalid': _(u"'%s' value has an invalid format. It must be in "
                      u"YYYY-MM-DD HH:MM[:ss[.uuuuuu]][TZ] format."),
@@ -351,7 +336,7 @@ class DateTimeField(ModelField):
         raise ValidationError(msg)
 
 
-class IntegerField(ModelField):
+class IntegerField(Field):
     error_messages = {
         'invalid': _(u"'%s' value must be an integer."),
     }
@@ -366,7 +351,7 @@ class IntegerField(ModelField):
         return value
 
 
-class FloatField(ModelField):
+class FloatField(Field):
     error_messages = {
         'invalid': _("'%s' value must be a float."),
     }
@@ -394,4 +379,4 @@ field_mapping = {
 
 
 def modelfield_to_serializerfield(field):
-    return field_mapping.get(type(field), ModelField)
+    return field_mapping.get(type(field), Field)
