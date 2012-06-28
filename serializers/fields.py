@@ -3,6 +3,7 @@ from django.utils.encoding import is_protected_type, smart_unicode
 from django.core import validators
 from django.core.exceptions import ValidationError
 from django.conf import settings
+from django.db import DEFAULT_DB_ALIAS
 from django.db.models.related import RelatedObject
 from django.db import models
 from django.utils import timezone
@@ -174,44 +175,40 @@ class NaturalKeyRelatedField(RelatedField):
             return obj.natural_key()
         return obj
 
+    def revert_field(self, data, field_name, into, cls):
+        value = data.get(field_name)
+        into[self.field.attname] = self.revert(value)
+
+    def revert(self, value):
+        # TODO: Support 'using' : db = options.pop('using', DEFAULT_DB_ALIAS)
+        manager = self.field.rel.to._default_manager
+        manager = manager.db_manager(DEFAULT_DB_ALIAS)
+        return manager.get_by_natural_key(*value).pk
+
 
 class PrimaryKeyOrNaturalKeyRelatedField(PrimaryKeyRelatedField):
     """
     Serializes to either pk or natural key, depending on if 'use_natural_keys'
     is specified when calling `serialize()`.
     """
+    def __init__(self, *args, **kwargs):
+        self.nk_field = NaturalKeyRelatedField()
+        self.pk_field = PrimaryKeyRelatedField()
+        super(PrimaryKeyOrNaturalKeyRelatedField, self).__init__(*args, **kwargs)
+
     def convert_field(self, obj, field_name):
         if self.root.options.get('use_natural_keys', False):
             self.is_natural_key = True
-            return self.convert_field_natural_key(obj, field_name)
+            return self.nk_field.convert_field(obj, field_name)
         self.is_natural_key = False
-        return super(PrimaryKeyOrNaturalKeyRelatedField, self).convert_field(obj, field_name)
-
-    def convert_field_natural_key(self, obj, field_name):
-        obj = getattr(obj, field_name)
-        if obj.__class__.__name__ in ('RelatedManager', 'ManyRelatedManager'):
-            return [self.convert_natural_key(item) for item in obj.all()]
-        return self.convert_natural_key(obj)
-
-    def convert_natural_key(self, obj):
-        if hasattr(obj, 'natural_key'):
-            return obj.natural_key()
-        return obj
+        return self.pk_field.convert_field(obj, field_name)
 
     def revert_field(self, data, field_name, into, cls):
         value = data.get(field_name)
         if hasattr(self.field.rel.to._default_manager, 'get_by_natural_key') and hasattr(value, '__iter__'):
-            return self.revert_field_natural_key(data, field_name, into)
-        return super(PrimaryKeyOrNaturalKeyRelatedField, self).revert_field(data, field_name, into, cls)
-
-    def revert_field_natural_key(self, data, field_name, into):
-        value = data.get(field_name)
-        into[self.field.attname] = self.revert_natural_key(value)
-
-    def revert_natural_key(self, value):
-        # TODO: Support 'using' : db = options.pop('using', DEFAULT_DB_ALIAS)
-        from django.db import DEFAULT_DB_ALIAS
-        return self.field.rel.to._default_manager.db_manager(DEFAULT_DB_ALIAS).get_by_natural_key(*value).pk
+            self.nk_field.field = self.field  # Total hack
+            return self.nk_field.revert_field(data, field_name, into, cls)
+        return self.pk_field.revert_field(data, field_name, into, cls)
 
 
 class ModelNameField(Field):
