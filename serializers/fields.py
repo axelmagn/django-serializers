@@ -31,11 +31,19 @@ class Field(object):
         self.field_name = field_name
         self.parent = parent
         self.root = parent.root or parent
+        try:
+            self.field = obj._meta.get_field_by_name(self.field_name)[0]
+        except:
+            pass
         return self.convert_field(obj, field_name)
 
     def _revert_field(self, data, field_name, into, parent, cls):
         self.parent = parent
         #self.root = parent.root or parent
+        try:
+            self.field = cls._meta.get_field_by_name(field_name)[0]
+        except:
+            pass
         self.revert_field(data, field_name, into, cls)
 
     def revert_field(self, data, field_name, into, cls):
@@ -51,27 +59,23 @@ class Field(object):
         Given the parent object and the field name, returns the field value
         that should be serialized.
         """
-        try:
-            self.field = obj._meta.get_field_by_name(self.field_name)[0]
-        except:
-            pass
         return self.convert(getattr(obj, field_name))
 
-    def convert(self, obj):
+    def convert(self, value):
         """
         Converts the field's value into it's simple representation.
         """
-        if is_simple_callable(obj):
-            obj = obj()
+        if is_simple_callable(value):
+            value = value()
 
-        if hasattr(obj, '__iter__'):
-            return [self.convert(item) for item in obj]
+        if hasattr(value, '__iter__'):
+            return [self.convert(item) for item in value]
 
-        if is_protected_type(obj):
-            return obj
+        if is_protected_type(value):
+            return value
         elif hasattr(self, 'field'):
             return self.field.value_to_string(self.obj)
-        return smart_unicode(obj)
+        return smart_unicode(value)
 
     def attributes(self):
         if hasattr(self, 'field'):
@@ -131,14 +135,6 @@ class PrimaryKeyRelatedField(RelatedField):
         return pk
 
     def revert(self, value):
-        # self.field = self.obj._meta.get_field_by_name(self.field_name)[0]
-        # print self.field.rel.to._meta.get_field(self.field.rel.field_name).to_python(value)
-        # if value in validators.EMPTY_VALUES:
-        #     return None
-        # try:
-        #     value = int(value)
-        # except (ValueError, TypeError):
-        #     raise ValidationError(self.error_messages['invalid'])
         return value
 
     def convert_field(self, obj, field_name):
@@ -201,20 +197,19 @@ class PrimaryKeyOrNaturalKeyRelatedField(PrimaryKeyRelatedField):
         return obj
 
     def revert_field(self, data, field_name, into, cls):
-        model_field = cls._meta.get_field_by_name(field_name)[0]
         value = data.get(field_name)
-        if hasattr(model_field.rel.to._default_manager, 'get_by_natural_key') and hasattr(value, '__iter__'):
-            return self.revert_field_natural_key(data, field_name, into, model_field)
+        if hasattr(self.field.rel.to._default_manager, 'get_by_natural_key') and hasattr(value, '__iter__'):
+            return self.revert_field_natural_key(data, field_name, into)
         return super(PrimaryKeyOrNaturalKeyRelatedField, self).revert_field(data, field_name, into, cls)
 
-    def revert_field_natural_key(self, data, field_name, into, model_field):
+    def revert_field_natural_key(self, data, field_name, into):
         value = data.get(field_name)
-        into[model_field.attname] = self.revert_natural_key(value, model_field)
+        into[self.field.attname] = self.revert_natural_key(value)
 
-    def revert_natural_key(self, value, model_field):
+    def revert_natural_key(self, value):
         # TODO: Support 'using' : db = options.pop('using', DEFAULT_DB_ALIAS)
         from django.db import DEFAULT_DB_ALIAS
-        return model_field.rel.to._default_manager.db_manager(DEFAULT_DB_ALIAS).get_by_natural_key(*value).pk
+        return self.field.rel.to._default_manager.db_manager(DEFAULT_DB_ALIAS).get_by_natural_key(*value).pk
 
 
 class ModelNameField(Field):
