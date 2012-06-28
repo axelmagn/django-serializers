@@ -78,11 +78,12 @@ class Field(object):
         return smart_unicode(value)
 
     def attributes(self):
-        if hasattr(self, 'field'):
+        try:
             return {
                 "type": self.field.get_internal_type()
             }
-        return {}
+        except AttributeError:
+            return {}
 
 
 class RelatedField(Field):
@@ -100,11 +101,13 @@ class RelatedField(Field):
         return self.convert(obj)
 
     def attributes(self):
-        field = self.obj._meta.get_field_by_name(self.field_name)[0]
-        return {
-            "rel": field.rel.__class__.__name__,
-            "to": smart_unicode(field.rel.to._meta)
-        }
+        try:
+            return {
+                "rel": self.field.rel.__class__.__name__,
+                "to": smart_unicode(self.field.rel.to._meta)
+            }
+        except AttributeError:
+            return {}
 
 
 class PrimaryKeyRelatedField(RelatedField):
