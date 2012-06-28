@@ -138,7 +138,6 @@ class PrimaryKeyRelatedField(RelatedField):
         return value
 
     def convert_field(self, obj, field_name):
-        self.test = field_name
         try:
             obj = obj.serializable_value(field_name)
         except AttributeError:
