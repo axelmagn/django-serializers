@@ -1353,7 +1353,7 @@ class Movie(models.Model):
 
 
 class NonIntegerPKTests(SerializationTestCase):
-    def test_unicode(self):
+    def test_unicode_fk(self):
         actor_name = u"Za\u017c\u00f3\u0142\u0107"
         movie_title = u'G\u0119\u015bl\u0105 ja\u017a\u0144'
         ac = Actor(name=actor_name)
@@ -1367,6 +1367,21 @@ class NonIntegerPKTests(SerializationTestCase):
         obj_list = list(DumpDataSerializer().deserialize(serial_str, format='json'))
         mv_obj = obj_list[0].object
         self.assertEqual(mv_obj.title, movie_title)
+
+    def test_unicode_pk(self):
+        actor_name = u"Za\u017c\u00f3\u0142\u0107"
+        movie_title = u'G\u0119\u015bl\u0105 ja\u017a\u0144'
+        ac = Actor(name=actor_name)
+        mv = Movie(title=movie_title, actor=ac)
+        ac.save()
+        mv.save()
+
+        serial_str = DumpDataSerializer().serialize([ac], format='json')
+        self.assertEqual(serializers.serialize('json', [ac]), serial_str)
+
+        obj_list = list(DumpDataSerializer().deserialize(serial_str, format='json'))
+        ac_obj = obj_list[0].object
+        self.assertEqual(ac_obj.name, actor_name)
 
 
 class Category(models.Model):
