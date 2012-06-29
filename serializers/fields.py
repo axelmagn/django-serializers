@@ -5,7 +5,6 @@ from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.db import DEFAULT_DB_ALIAS
 from django.db.models.related import RelatedObject
-from django.db import models
 from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
 from django.utils.translation import ugettext_lazy as _
@@ -371,18 +370,18 @@ class FloatField(Field):
             msg = self.error_messages['invalid'] % value
             raise ValidationError(msg)
 
-field_mapping = {
-    models.AutoField: IntegerField,
-    models.BooleanField: BooleanField,
-    models.CharField: CharField,
-    models.DateTimeField: DateTimeField,
-    models.DateField: DateField,
-    models.BigIntegerField: IntegerField,
-    models.IntegerField: IntegerField,
-    models.PositiveIntegerField: IntegerField,
-    models.FloatField: FloatField
-}
+# field_mapping = {
+#     models.AutoField: IntegerField,
+#     models.BooleanField: BooleanField,
+#     models.CharField: CharField,
+#     models.DateTimeField: DateTimeField,
+#     models.DateField: DateField,
+#     models.BigIntegerField: IntegerField,
+#     models.IntegerField: IntegerField,
+#     models.PositiveIntegerField: IntegerField,
+#     models.FloatField: FloatField
+# }
 
 
-def modelfield_to_serializerfield(field):
-    return field_mapping.get(type(field), Field)
+# def modelfield_to_serializerfield(field):
+#     return field_mapping.get(type(field), Field)

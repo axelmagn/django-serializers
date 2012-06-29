@@ -1,6 +1,6 @@
 from decimal import Decimal
+from django.db import models
 from django.core.serializers.base import DeserializedObject
-from django.db.models.fields import FieldDoesNotExist
 from django.utils.datastructures import SortedDict
 import copy
 import datetime
@@ -85,8 +85,8 @@ class SerializerOptions(object):
     def __init__(self, meta, **kwargs):
         self.format = _get_option('format', kwargs, meta, None)
         self.nested = _get_option('nested', kwargs, meta, False)
-        self.exclude = _get_option('exclude', kwargs, meta, ())
         self.fields = _get_option('fields', kwargs, meta, ())
+        self.exclude = _get_option('exclude', kwargs, meta, ())
         self.include_default_fields = _get_option(
             'include_default_fields', kwargs, meta, True
         )
@@ -426,8 +426,7 @@ class ModelSerializer(RelatedField, Serializer):
             if nested:
                 return self.__class__()
             return self.opts.related_field()
-        field_class = modelfield_to_serializerfield(model_field)
-        return field_class()
+        return Field()
 
     def revert_class(self, data):
         if self.opts.is_root:
