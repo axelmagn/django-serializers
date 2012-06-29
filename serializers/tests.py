@@ -5,7 +5,7 @@ from django.db import models
 from django.test import TestCase
 from django.utils.datastructures import SortedDict
 from serializers import ObjectSerializer, ModelSerializer, DumpDataSerializer
-from serializers.fields import Field, NaturalKeyRelatedField
+from serializers.fields import Field, NaturalKeyRelatedField, PrimaryKeyRelatedField
 
 
 def expand(obj):
@@ -183,57 +183,6 @@ class BasicSerializerTests(SerializationTestCase):
 
         self.assertEquals(CustomSerializer().serialize(self.obj), expected)
 
-    def test_serialize_include(self):
-        """
-        Setting 'Meta.include' causes a field to be included.
-        """
-        class CustomSerializer(ObjectSerializer):
-            class Meta:
-                include = ('_hidden',)
-
-        expected = {
-            'a': 1,
-            'b': 'foo',
-            'c': True,
-            '_hidden': 'other'
-        }
-
-        self.assertEquals(CustomSerializer().serialize(self.obj), expected)
-
-    def test_serialize_include_and_exclude(self):
-        """
-        Both 'Meta.include' and 'Meta.exclude' may be set.
-        """
-        class CustomSerializer(ObjectSerializer):
-            class Meta:
-                include = ('_hidden',)
-                exclude = ('b',)
-
-        expected = {
-            'a': 1,
-            'c': True,
-            '_hidden': 'other'
-        }
-
-        self.assertEquals(CustomSerializer().serialize(self.obj), expected)
-
-    def test_serialize_fields_and_include_and_exclude(self):
-        """
-        'Meta.fields' overrides both 'Meta.include' and 'Meta.exclude' if set.
-        """
-        class CustomSerializer(ObjectSerializer):
-            class Meta:
-                include = ('_hidden',)
-                exclude = ('b',)
-                fields = ('a', 'b')
-
-        expected = {
-            'a': 1,
-            'b': 'foo'
-        }
-
-        self.assertEquals(CustomSerializer().serialize(self.obj), expected)
-
 
 class SerializeAttributeTests(SerializationTestCase):
     """
@@ -259,6 +208,8 @@ class SerializeAttributeTests(SerializationTestCase):
         Object properties can be included as fields.
         """
         class CustomSerializer(ObjectSerializer):
+            full_name = Field()
+
             class Meta:
                 fields = ('full_name', 'age')
 
@@ -274,6 +225,9 @@ class SerializeAttributeTests(SerializationTestCase):
         Object methods may be included as fields.
         """
         class CustomSerializer(ObjectSerializer):
+            full_name = Field()
+            is_child = Field()
+
             class Meta:
                 fields = ('full_name', 'is_child')
 
@@ -473,9 +427,15 @@ class NestedSerializationTests(SerializationTestCase):
         """
         We can pass serializer options through to nested fields as usual.
         """
+        class SiblingsSerializer(ObjectSerializer):
+            full_name = Field()
+
+            class Meta:
+                fields = ('full_name',)
+
         class PersonSerializer(ObjectSerializer):
             full_name = Field()
-            siblings = ObjectSerializer(fields=('full_name',), nested=True)
+            siblings = SiblingsSerializer()
 
             class Meta:
                 include_default_fields = False
@@ -494,9 +454,9 @@ class NestedSerializationTests(SerializationTestCase):
 
         self.assertEquals(PersonSerializer().serialize(self.obj), expected)
 
-    def test_depth_zero_serialization(self):
+    def test_flat_serialization(self):
         """
-        If 'nested' equals 0 then nested objects should be serialized as
+        If 'nested' is False then nested objects should be serialized as
         flat values.
         """
         expected = {
@@ -509,7 +469,7 @@ class NestedSerializationTests(SerializationTestCase):
             ]
         }
 
-        self.assertEquals(ObjectSerializer(nested=0).serialize(self.obj), expected)
+        self.assertEquals(ObjectSerializer(nested=False).serialize(self.obj), expected)
 
     def test_depth_one_serialization(self):
         """
@@ -860,11 +820,9 @@ class TestNaturalKey(SerializationTestCase):
         Ensure that we can use NaturalKeyRelatedField to represent
         reverse foreign key relationships.
         """
-        serializer = ModelSerializer(
-            include=('pets',),
-            related_field=NaturalKeyRelatedField,
-            depth=0
-        )
+        class PetOwnerSerializer(ModelSerializer):
+            pets = NaturalKeyRelatedField()
+
         expected = [{
             "first_name": u"joe",
             "last_name": u"adams",
@@ -873,7 +831,7 @@ class TestNaturalKey(SerializationTestCase):
             "pets": [u"splash gordon", u"frogger"]  # NK, not PK
         }]
         self.assertEquals(
-            serializer.serialize(PetOwner.objects.all()),
+            PetOwnerSerializer().serialize(PetOwner.objects.all()),
             expected
         )
 
@@ -981,8 +939,14 @@ class TestReverseOneToOneModel(SerializationTestCase):
     """
 
     def setUp(self):
-        self.nested_model = ModelSerializer(include=('profile',), nested=True)
-        self.flat_model = ModelSerializer(include=('profile',))
+        class NestedUserSerializer(ModelSerializer):
+            profile = ModelSerializer()
+
+        class FlatUserSerializer(ModelSerializer):
+            profile = PrimaryKeyRelatedField()
+
+        self.nested_model = NestedUserSerializer()
+        self.flat_model = FlatUserSerializer()
         user = User.objects.create(email='joe@example.com')
         Profile.objects.create(
             user=user,
@@ -1106,18 +1070,24 @@ class TestFKModel(SerializationTestCase):
         self.assertTrue(deserialized_eq(lhs, rhs))
 
     def test_reverse_fk_flat(self):
+        class OwnerSerializer(ModelSerializer):
+            vehicles = PrimaryKeyRelatedField()
+
         expected = {
             'id': 1,
             'email': u'tom@example.com',
             'vehicles':  [1, 2]
         }
-        serializer = ModelSerializer(include=('vehicles',), depth=0)
+
         self.assertEquals(
-            serializer.serialize(Owner.objects.get(id=1)),
+            OwnerSerializer().serialize(Owner.objects.get(id=1)),
             expected
         )
 
     def test_reverse_fk_nested(self):
+        class OwnerSerializer(ModelSerializer):
+            vehicles = ModelSerializer()
+
         expected = {
             'id': 1,
             'email': u'tom@example.com',
@@ -1135,9 +1105,8 @@ class TestFKModel(SerializationTestCase):
                 }
             ]
         }
-        serializer = ModelSerializer(include=('vehicles',), nested=True)
         self.assertEquals(
-            serializer.serialize(Owner.objects.get(id=1)),
+            OwnerSerializer().serialize(Owner.objects.get(id=1)),
             expected
         )
 

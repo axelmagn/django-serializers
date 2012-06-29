@@ -85,7 +85,6 @@ class SerializerOptions(object):
     def __init__(self, meta, **kwargs):
         self.format = _get_option('format', kwargs, meta, None)
         self.nested = _get_option('nested', kwargs, meta, False)
-        self.include = _get_option('include', kwargs, meta, ())
         self.exclude = _get_option('exclude', kwargs, meta, ())
         self.fields = _get_option('fields', kwargs, meta, ())
         self.include_default_fields = _get_option(
@@ -109,7 +108,6 @@ class ModelSerializerOptions(SerializerOptions):
         super(ModelSerializerOptions, self).__init__(meta, **kwargs)
         self.model_field_types = _get_option('model_field_types', kwargs, meta, None)
         self.model_field = _get_option('model_field', kwargs, meta, Field)
-        self.non_model_field = _get_option('non_model_field', kwargs, meta, Field)
         self.related_field = _get_option('related_field', kwargs, meta, PrimaryKeyRelatedField)
         self.nested_related_field = _get_option('nested_related_field', kwargs, meta, None)
         self.model = _get_option('model', kwargs, meta, None)
@@ -139,7 +137,7 @@ class BaseSerializer(Field):
         # If one of our fields has 'is_root' set, pass through some of our args
         for field in self.fields.values():
             if hasattr(field, 'opts') and getattr(field.opts, 'is_root', None):
-                for keyword in ('fields', 'include', 'exclude', 'nested'):
+                for keyword in ('fields', 'exclude', 'nested'):
                     if keyword in kwargs:
                         setattr(field.opts, keyword, kwargs.pop(keyword))
 
@@ -149,12 +147,6 @@ class BaseSerializer(Field):
     def get_default_fields(self, obj, nested):
         """
         Return the complete set of default fields for the object, as a dict.
-        """
-        raise NotImplementedError()
-
-    def get_default_field(self, obj, field_name, nested):
-        """
-        Return a single default field for the object.
         """
         raise NotImplementedError()
 
@@ -174,23 +166,17 @@ class BaseSerializer(Field):
                 if key not in ret:
                     ret[key] = val
 
-        # If 'fields' is specified, return only those fields, in that order
+        # If 'fields' is specified, use those fields, in that order.
         if self.opts.fields:
             new = SortedDict()
             for key in self.opts.fields:
-                new[key] = ret.get(key, self.get_default_field(obj, key, nested))
-            return new
+                new[key] = ret[key]
+            ret = new
 
         # Remove anything in 'exclude'
         if self.opts.exclude:
             for key in self.opts.exclude:
                 ret.pop(key, None)
-
-        # Add anything in 'include'
-        if self.opts.include:
-            for key in self.opts.include:
-                if key not in ret:
-                    ret[key] = self.get_default_field(obj, key, nested)
 
         return ret
 
@@ -337,12 +323,12 @@ class BaseSerializer(Field):
         for key, field in self.fields.items():
             if hasattr(field, 'opts') and getattr(field.opts, 'is_root', None):
                 has_root_field = True
-                for keyword in ('fields', 'include', 'exclude', 'nested'):
+                for keyword in ('fields', 'exclude', 'nested'):
                     if keyword in opts:
                         setattr(field.opts, keyword, opts.pop(keyword))
 
         if not has_root_field:
-            for keyword in ('fields', 'include', 'exclude', 'nested'):
+            for keyword in ('fields', 'exclude', 'nested'):
                 if keyword in opts:
                     setattr(self.opts, keyword, opts.pop(keyword))
 
@@ -397,11 +383,6 @@ class ObjectSerializer(Serializer):
                 ret[attr] = Field()
         return ret
 
-    def get_default_field(self, obj, key, nested):
-        if nested:
-            return self.__class__()
-        return Field()
-
 
 class ModelSerializer(RelatedField, Serializer):
     """
@@ -449,13 +430,6 @@ class ModelSerializer(RelatedField, Serializer):
         for field in fields:
             ret[field.name] = self.get_field(field, nested)
         return ret
-
-    def get_default_field(self, obj, key, nested):
-        try:
-            field = obj._meta.get_field_by_name(key)[0]
-        except FieldDoesNotExist:
-            return Field()
-        return self.get_field(field, nested)
 
     def get_field(self, model_field, nested):
         if isinstance(model_field, RelatedObject) or model_field.rel:
