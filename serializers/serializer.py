@@ -109,7 +109,6 @@ class ModelSerializerOptions(SerializerOptions):
         self.model_field_types = _get_option('model_field_types', kwargs, meta, None)
         self.model_field = _get_option('model_field', kwargs, meta, Field)
         self.related_field = _get_option('related_field', kwargs, meta, PrimaryKeyRelatedField)
-        self.nested_related_field = _get_option('nested_related_field', kwargs, meta, None)
         self.model = _get_option('model', kwargs, meta, None)
 
 
@@ -434,7 +433,7 @@ class ModelSerializer(RelatedField, Serializer):
     def get_field(self, model_field, nested):
         if isinstance(model_field, RelatedObject) or model_field.rel:
             if nested:
-                return (self.opts.nested_related_field or self.__class__)()
+                return self.__class__()
             return self.opts.related_field()
         field_class = modelfield_to_serializerfield(model_field)
         return field_class()
