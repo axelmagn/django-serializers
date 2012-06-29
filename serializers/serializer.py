@@ -104,13 +104,6 @@ class SerializerOptions(object):
         })
 
 
-class ObjectSerializerOptions(SerializerOptions):
-    def __init__(self, meta, **kwargs):
-        super(ObjectSerializerOptions, self).__init__(meta, **kwargs)
-        self.flat_field = _get_option('flat_field', kwargs, meta, Field)
-        self.nested_field = _get_option('nested_field', kwargs, meta, None)
-
-
 class ModelSerializerOptions(SerializerOptions):
     def __init__(self, meta, **kwargs):
         super(ModelSerializerOptions, self).__init__(meta, **kwargs)
@@ -391,8 +384,6 @@ class Serializer(BaseSerializer):
 
 
 class ObjectSerializer(Serializer):
-    _options_class = ObjectSerializerOptions
-
     def get_default_fields(self, obj, nested):
         """
         Given an object, return the default set of fields to serialize.
@@ -401,21 +392,15 @@ class ObjectSerializer(Serializer):
         attrs = [key for key in obj.__dict__.keys() if not(key.startswith('_'))]
         for attr in sorted(attrs):
             if nested:
-                ret[attr] = self.get_nested_serializer()
+                ret[attr] = self.__class__()
             else:
-                ret[attr] = self.get_flat_serializer()
+                ret[attr] = Field()
         return ret
 
     def get_default_field(self, obj, key, nested):
         if nested:
-            return self.get_nested_serializer()
-        return self.get_flat_serializer()
-
-    def get_flat_serializer(self):
-        return self.opts.flat_field()
-
-    def get_nested_serializer(self):
-        return (self.opts.nested_field or self.__class__)()
+            return self.__class__()
+        return Field()
 
 
 class ModelSerializer(RelatedField, Serializer):
