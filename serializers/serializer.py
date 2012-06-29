@@ -513,7 +513,7 @@ class DumpDataSerializer(ModelSerializer):
     """
     _use_sorted_dict = False  # Ensure byte-for-byte backwards compatability
 
-    pk = IntegerField()
+    pk = Field()
     model = ModelNameField()
     fields = DumpDataFields(is_root=True)
 

@@ -28,11 +28,11 @@ class Field(object):
         """
         The entry point into a field, as called by it's parent serializer.
         """
-        self.obj = obj
         self.parent = parent
         self.root = parent.root or parent
         try:
             self.field = obj._meta.get_field_by_name(field_name)[0]
+            self.obj = obj
         except:
             pass
         return self.convert_field(obj, field_name)
@@ -41,23 +41,38 @@ class Field(object):
         self.parent = parent
         #self.root = parent.root or parent
         try:
-            self.field = cls._meta.get_field_by_name(field_name)[0]
+            if field_name == 'pk':
+                self.field = cls._meta.pk
+            else:
+                self.field = cls._meta.get_field_by_name(field_name)[0]
         except:
             pass
         self.revert_field(data, field_name, into, cls)
 
     def revert_field(self, data, field_name, into, cls):
+        """
+        Given a dictionary and a field name, updates the dictionary `into`,
+        with the field and it's deserialized value.
+        """
         if not field_name in data:
             return
         into[field_name] = self.revert(data.get(field_name))
 
     def revert(self, value):
+        """
+        Reverts a simple representation back to the field's value.
+        """
+        if hasattr(self, 'field'):
+            try:
+                return self.field.rel.to._meta.get_field(self.field.rel.field_name).to_python(value)
+            except:
+                return self.field.to_python(value)
         return value
 
     def convert_field(self, obj, field_name):
         """
-        Given the parent object and the field name, returns the field value
-        that should be serialized.
+        Given and object and a field name, returns the value that should be
+        serialized for that field.
         """
         return self.convert(getattr(obj, field_name))
 
@@ -78,6 +93,9 @@ class Field(object):
         return smart_unicode(value)
 
     def attributes(self):
+        """
+        Returns a dictionary of attributes to be used when serializing to xml.
+        """
         try:
             return {
                 "type": self.field.get_internal_type()
@@ -136,9 +154,6 @@ class PrimaryKeyRelatedField(RelatedField):
         (For example returning a URL based on the model's pk.)
         """
         return pk
-
-    def revert(self, value):
-        return value
 
     def convert_field(self, obj, field_name):
         try:
