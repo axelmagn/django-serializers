@@ -259,10 +259,6 @@ class BaseSerializer(Field):
         else:
             return cls(**reverted_data)
 
-    def _convert_iterable(self, obj):
-        for item in obj:
-            yield self.convert(item)
-
     def convert(self, obj):
         """
         First stage of serialization.  Objects -> Primatives.
@@ -275,12 +271,8 @@ class BaseSerializer(Field):
             return dict([(key, self.convert(val))
                          for (key, val) in obj.items()])
         elif hasattr(obj, '__iter__'):
-            return self._convert_iterable(obj)
+            return (self.convert(item) for item in obj)
         return self.convert_object(obj)
-
-    def _revert_iterable(self, data):
-        for item in data:
-            yield self.revert(item)
 
     def revert(self, data):
         """
@@ -289,7 +281,7 @@ class BaseSerializer(Field):
         if _is_protected_type(data):
             return data
         elif hasattr(data, '__iter__') and not isinstance(data, dict):
-            return self._revert_iterable(data)
+            return (self.revert(item) for item in data)
         else:
             return self.revert_object(data)
 
