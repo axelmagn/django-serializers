@@ -29,11 +29,10 @@ class Field(object):
         The entry point into a field, as called by it's parent serializer.
         """
         self.obj = obj
-        self.field_name = field_name
         self.parent = parent
         self.root = parent.root or parent
         try:
-            self.field = obj._meta.get_field_by_name(self.field_name)[0]
+            self.field = obj._meta.get_field_by_name(field_name)[0]
         except:
             pass
         return self.convert_field(obj, field_name)

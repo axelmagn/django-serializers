@@ -531,12 +531,9 @@ class DumpDataSerializer(ModelSerializer):
 
     def revert_class(self, data):
         try:
-            Model = models.get_model(*data['model'].split("."))
+            return models.get_model(*data['model'].split("."))
         except TypeError:
-            Model = None
-        if Model is None:
             raise DeserializationError(u"Invalid model identifier: '%s'" % value)
-        return Model
 
 
 class JSONDumpDataSerializer(DumpDataSerializer):
