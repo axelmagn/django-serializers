@@ -1384,6 +1384,19 @@ class NonIntegerPKTests(SerializationTestCase):
         self.assertEqual(ac_obj.name, actor_name)
 
 
+class FileData(models.Model):
+    data = models.FileField(null=True, upload_to='/foo/bar')
+
+
+class FileFieldTests(SerializationTestCase):
+    def test_serialize_file_field(self):
+        FileData().save()
+        self.assertEquals(
+            DumpDataSerializer().serialize(FileData.objects.all(), 'json'),
+            serializers.serialize('json', FileData.objects.all())
+        )
+
+
 class Category(models.Model):
     name = models.CharField(max_length=20)
 

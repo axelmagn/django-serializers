@@ -174,7 +174,7 @@ class DumpDataXMLRenderer(BaseRenderer):
 
 class CSVRenderer(BaseRenderer):
     def render(self, obj, stream, **opts):
-        if not hasattr(obj, '__iter__'):
+        if isinstance(obj, dict) or not hasattr(obj, '__iter__'):
             obj = [obj]
         writer = None
         for item in obj:

@@ -32,9 +32,9 @@ class Field(object):
         self.root = parent.root or parent
         try:
             self.field = obj._meta.get_field_by_name(field_name)[0]
-            self.obj = obj
         except:
             pass
+
         return self.convert_field(obj, field_name)
 
     def _revert_field(self, data, field_name, into, parent, cls):
@@ -74,6 +74,9 @@ class Field(object):
         Given and object and a field name, returns the value that should be
         serialized for that field.
         """
+        self.obj = obj
+        if hasattr(self, 'field'):
+            return self.convert(self.field._get_val_from_obj(obj))
         return self.convert(getattr(obj, field_name))
 
     def convert(self, value):
@@ -82,9 +85,6 @@ class Field(object):
         """
         if is_simple_callable(value):
             value = value()
-
-        if hasattr(value, '__iter__'):
-            return [self.convert(item) for item in value]
 
         if is_protected_type(value):
             return value
