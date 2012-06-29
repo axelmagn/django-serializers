@@ -399,26 +399,6 @@ class SerializerFieldTests(SerializationTestCase):
 
     #     self.assertEquals(CustomSerializer().serialize(self.obj), expected)
 
-    def test_field_func(self):
-        """
-        A serializer field can take a 'serialize' argument, which is used to
-        serialize the field value.
-        """
-        class CustomSerializer(ObjectSerializer):
-            full_name = Field(label='Full name',
-                              convert=lambda name: 'Mr ' + name.title())
-            age = ObjectSerializer(label='Age')
-
-            class Meta:
-                fields = ('full_name', 'age')
-
-        expected = {
-            'Full name': 'Mr John Doe',
-            'Age': 42
-        }
-
-        self.assertEquals(CustomSerializer().serialize(self.obj), expected)
-
     # def test_serializer_fields_do_not_share_state(self):
     #     """
     #     Make sure that different serializer instances do not share the same

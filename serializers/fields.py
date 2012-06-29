@@ -18,8 +18,6 @@ class Field(object):
 
     def __init__(self, label=None, convert=None):
         self.label = label
-        if convert:
-            self.convert = convert
         self.parent = None
         self.creation_counter = Field.creation_counter
         Field.creation_counter += 1
