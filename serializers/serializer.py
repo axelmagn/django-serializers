@@ -186,14 +186,8 @@ class BaseSerializer(Field):
             return field.label
         return field_name
 
-    def _convert_field(self, obj, field_name):
-        """
-        Same behaviour as usual Field, except that we need to keep track
-        of state so that we can deal with handling maximum depth and recursion.
-        """
-        self.orig_obj = obj
-        self.orig_field_name = field_name
-
+    def initialise(self, *args, **kwargs):
+        super(BaseSerializer, self).initialise(*args, **kwargs)
         parent = self.parent
         self.stack = parent.stack[:]
         if parent.opts.nested and not isinstance(parent.opts.nested, bool):
@@ -201,14 +195,14 @@ class BaseSerializer(Field):
         else:
             self.opts.nested = parent.opts.nested
 
+    def _convert_field(self, obj, field_name):
+        """
+        Same behaviour as usual Field, except that we need to keep track
+        of state so that we can deal with handling maximum depth and recursion.
+        """
         if self.opts.is_root:
             return self.convert(obj)
         return super(BaseSerializer, self)._convert_field(obj, field_name)
-
-    def _revert_field(self, data, field_name, into):
-        self.orig_data = data
-        #self.root = parent.root or parent
-        self.revert_field(data, field_name, into)
 
     def revert_field(self, data, field_name, into):
         field_data = self.revert(data.get(field_name))
@@ -219,9 +213,10 @@ class BaseSerializer(Field):
 
     def convert_object(self, obj):
         if obj in self.stack and not self.opts.is_root:
-            serializer = self.get_fields(self.orig_obj, nested=False)[self.orig_field_name]
-            return serializer._convert_field(self.orig_obj,
-                                             self.orig_field_name)
+            serializer = self.get_fields(self.obj, nested=False)[self.field_name]
+            serializer.initialise(self, self.field_name, obj=self.obj)
+            return serializer._convert_field(self.obj,
+                                             self.field_name)
         self.stack.append(obj)
 
         if self._use_sorted_dict:
@@ -231,7 +226,7 @@ class BaseSerializer(Field):
 
         fields = self.get_fields(obj, nested=self.opts.nested)
         for field_name, field in fields.items():
-            field.initialise(self, field_name, obj.__class__)
+            field.initialise(self, field_name, obj=obj)
             key = self.get_field_key(obj, field_name, field)
             value = field._convert_field(obj, field_name)
             ret.set_with_metadata(key, value, field)
@@ -239,14 +234,14 @@ class BaseSerializer(Field):
 
     def revert_class(self, data):
         if self.opts.is_root:
-            return self.parent.revert_class(self.orig_data)
+            return self.parent.revert_class(self.data)
         return None
 
     def revert_fields(self, data, cls):
         fields = self.get_fields(cls, nested=self.opts.nested)
         reverted_data = {}
         for field_name, field in fields.items():
-            field.initialise(self, field_name, cls)
+            field.initialise(self, field_name, data=data, data_cls=cls)
             field._revert_field(data, field_name, reverted_data)
         return reverted_data
 
@@ -340,6 +335,7 @@ class BaseSerializer(Field):
         """
         self.parent = None
         self.root = None
+        self.stack = []
 
         format = format or self.opts.format
         if format:
@@ -431,7 +427,7 @@ class ModelSerializer(RelatedField, Serializer):
 
     def revert_class(self, data):
         if self.opts.is_root:
-            return self.parent.revert_class(self.orig_data)
+            return self.parent.revert_class(self.data)
         return self.opts.model
 
     def revert_object(self, data):

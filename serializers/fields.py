@@ -21,14 +21,18 @@ class Field(object):
         self.creation_counter = Field.creation_counter
         Field.creation_counter += 1
 
-    def initialise(self, parent, field_name, cls):
+    def initialise(self, parent, field_name, obj=None, data=None, data_cls=None):
         self.parent = parent
         self.root = parent.root or parent
+        self.field_name = field_name
+        self.obj = obj
+        self.data = data
         try:
+            meta = (obj or data_cls)._meta
             if field_name == 'pk':
-                self.field = cls._meta.pk
+                self.field = meta.pk
             else:
-                self.field = cls._meta.get_field_by_name(field_name)[0]
+                self.field = meta.get_field_by_name(field_name)[0]
         except:
             pass
 
