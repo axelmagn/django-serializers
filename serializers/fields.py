@@ -21,22 +21,9 @@ class Field(object):
         self.creation_counter = Field.creation_counter
         Field.creation_counter += 1
 
-    def _convert_field(self, obj, field_name, parent):
-        """
-        The entry point into a field, as called by it's parent serializer.
-        """
+    def initialise(self, parent, field_name, cls):
         self.parent = parent
         self.root = parent.root or parent
-        try:
-            self.field = obj._meta.get_field_by_name(field_name)[0]
-        except:
-            pass
-
-        return self.convert_field(obj, field_name)
-
-    def _revert_field(self, data, field_name, into, parent, cls):
-        self.parent = parent
-        #self.root = parent.root or parent
         try:
             if field_name == 'pk':
                 self.field = cls._meta.pk
@@ -44,9 +31,17 @@ class Field(object):
                 self.field = cls._meta.get_field_by_name(field_name)[0]
         except:
             pass
-        self.revert_field(data, field_name, into, cls)
 
-    def revert_field(self, data, field_name, into, cls):
+    def _convert_field(self, obj, field_name):
+        """
+        The entry point into a field, as called by it's parent serializer.
+        """
+        return self.convert_field(obj, field_name)
+
+    def _revert_field(self, data, field_name, into):
+        self.revert_field(data, field_name, into)
+
+    def revert_field(self, data, field_name, into):
         """
         Given a dictionary and a field name, updates the dictionary `into`,
         with the field and it's deserialized value.
@@ -167,7 +162,7 @@ class PrimaryKeyRelatedField(RelatedField):
             return [self.convert(item.pk) for item in obj.all()]
         return self.convert(obj)
 
-    def revert_field(self, data, field_name, into, cls):
+    def revert_field(self, data, field_name, into):
         value = data.get(field_name)
         if hasattr(value, '__iter__'):
             into[field_name] = [self.revert(item) for item in value]
@@ -186,7 +181,7 @@ class NaturalKeyRelatedField(RelatedField):
             return obj.natural_key()
         return obj
 
-    def revert_field(self, data, field_name, into, cls):
+    def revert_field(self, data, field_name, into):
         value = data.get(field_name)
         into[self.field.attname] = self.revert(value)
 
@@ -214,12 +209,12 @@ class PrimaryKeyOrNaturalKeyRelatedField(PrimaryKeyRelatedField):
         self.is_natural_key = False
         return self.pk_field.convert_field(obj, field_name)
 
-    def revert_field(self, data, field_name, into, cls):
+    def revert_field(self, data, field_name, into):
         value = data.get(field_name)
         if hasattr(self.field.rel.to._default_manager, 'get_by_natural_key') and hasattr(value, '__iter__'):
             self.nk_field.field = self.field  # Total hack
-            return self.nk_field.revert_field(data, field_name, into, cls)
-        return self.pk_field.revert_field(data, field_name, into, cls)
+            return self.nk_field.revert_field(data, field_name, into)
+        return self.pk_field.revert_field(data, field_name, into)
 
 
 class ModelNameField(Field):
@@ -229,7 +224,7 @@ class ModelNameField(Field):
     def convert_field(self, obj, field_name):
         return smart_unicode(obj._meta)
 
-    def revert_field(self, data, field_name, into, cls):
+    def revert_field(self, data, field_name, into):
         # We don't actually want to restore the model name metadata to a field.
         pass
 
