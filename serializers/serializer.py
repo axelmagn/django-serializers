@@ -242,7 +242,7 @@ class BaseSerializer(Field):
         reverted_data = {}
         for field_name, field in fields.items():
             field.initialise(self, field_name, data=data, data_cls=cls)
-            field._revert_field(data, field_name, reverted_data)
+            field.revert_field(data, field_name, reverted_data)
         return reverted_data
 
     def revert_object(self, data):

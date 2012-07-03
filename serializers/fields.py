@@ -42,9 +42,6 @@ class Field(object):
         """
         return self.convert_field(obj, field_name)
 
-    def _revert_field(self, data, field_name, into):
-        self.revert_field(data, field_name, into)
-
     def revert_field(self, data, field_name, into):
         """
         Given a dictionary and a field name, updates the dictionary `into`,
