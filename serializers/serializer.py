@@ -195,14 +195,14 @@ class BaseSerializer(Field):
         else:
             self.opts.nested = parent.opts.nested
 
-    def _convert_field(self, obj, field_name):
+    def convert_field(self, obj, field_name):
         """
         Same behaviour as usual Field, except that we need to keep track
         of state so that we can deal with handling maximum depth and recursion.
         """
         if self.opts.is_root:
             return self.convert(obj)
-        return super(BaseSerializer, self)._convert_field(obj, field_name)
+        return super(BaseSerializer, self).convert_field(obj, field_name)
 
     def revert_field(self, data, field_name, into):
         field_data = self.revert(data.get(field_name))
@@ -213,10 +213,9 @@ class BaseSerializer(Field):
 
     def convert_object(self, obj):
         if obj in self.stack and not self.opts.is_root:
-            serializer = self.get_fields(self.obj, nested=False)[self.field_name]
-            serializer.initialise(self, self.field_name, obj=self.obj)
-            return serializer._convert_field(self.obj,
-                                             self.field_name)
+            field = self.get_fields(self.obj, nested=False)[self.field_name]
+            field.initialise(self, self.field_name, obj=self.obj)
+            return field.convert_field(self.obj, self.field_name)
         self.stack.append(obj)
 
         if self._use_sorted_dict:
@@ -228,7 +227,7 @@ class BaseSerializer(Field):
         for field_name, field in fields.items():
             field.initialise(self, field_name, obj=obj)
             key = self.get_field_key(obj, field_name, field)
-            value = field._convert_field(obj, field_name)
+            value = field.convert_field(obj, field_name)
             ret.set_with_metadata(key, value, field)
         return ret
 
@@ -371,7 +370,7 @@ class ObjectSerializer(Serializer):
         return ret
 
 
-class ModelSerializer(RelatedField, Serializer):
+class ModelSerializer(Serializer):
     """
     A serializer that deals with model instances and querysets.
     """
@@ -424,6 +423,15 @@ class ModelSerializer(RelatedField, Serializer):
                 return self.__class__()
             return self.opts.related_field()
         return Field()
+
+    def convert_field(self, obj, field_name):
+        if self.opts.is_root:
+            return self.convert(obj)
+
+        obj = getattr(obj, field_name)
+        if obj.__class__.__name__ in ('RelatedManager', 'ManyRelatedManager'):
+            return [self.convert(item) for item in obj.all()]
+        return self.convert(obj)
 
     def revert_class(self, data):
         if self.opts.is_root:
