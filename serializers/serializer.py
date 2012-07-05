@@ -201,7 +201,7 @@ class BaseSerializer(Field):
     #####
     # Methods to convert or revert from objects <--> primative representations.
 
-    def get_field_key(self, obj, field_name, field):
+    def convert_field_key(self, obj, field_name, field):
         """
         Return the key that should be used for a given field.
         """
@@ -224,7 +224,7 @@ class BaseSerializer(Field):
         fields = self.get_fields(obj, nested=self.opts.nested)
         for field_name, field in fields.items():
             field.initialise(self, field_name, obj=obj)
-            key = self.get_field_key(obj, field_name, field)
+            key = self.convert_field_key(obj, field_name, field)
             value = field.convert_field(obj, field_name)
             ret.set_with_metadata(key, value, field)
         return ret
