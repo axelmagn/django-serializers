@@ -134,13 +134,13 @@ class BaseSerializer(Field):
     #####
     # Methods to determine which fields to use when (de)serializing objects.
 
-    def get_default_fields(self, obj, nested):
+    def default_fields(self, obj, cls, nested):
         """
         Return the complete set of default fields for the object, as a dict.
         """
         return {}
 
-    def get_fields(self, obj, nested):
+    def get_fields(self, obj, cls, nested):
         """
         Returns the complete set of fields for the object, as a dict.
 
@@ -165,7 +165,7 @@ class BaseSerializer(Field):
 
         # Add in the default fields
         if self.opts.include_default_fields:
-            for key, val in self.get_default_fields(obj, nested).items():
+            for key, val in self.default_fields(obj, cls, nested).items():
                 if key not in ret:
                     ret[key] = val
 
@@ -228,7 +228,8 @@ class BaseSerializer(Field):
 
     def convert_object(self, obj):
         if obj in self.stack and not self.opts.is_root:
-            field = self.get_fields(self.obj, nested=False)[self.field_name]
+            fields = self.get_fields(self.obj, None, nested=False)
+            field = fields[self.field_name]
             return field.convert_field(self.obj, self.field_name)
         self.stack.append(obj)
 
@@ -237,7 +238,7 @@ class BaseSerializer(Field):
         else:
             ret = DictWithMetadata()
 
-        fields = self.get_fields(obj, nested=self.opts.nested)
+        fields = self.get_fields(obj, None, nested=self.opts.nested)
         for field_name, field in fields.items():
             key = self.convert_field_key(obj, field_name, field)
             value = field.convert_field(obj, field_name)
@@ -245,7 +246,7 @@ class BaseSerializer(Field):
         return ret
 
     def revert_fields(self, data, cls):
-        fields = self.get_fields(cls, nested=self.opts.nested)
+        fields = self.get_fields(None, cls, nested=self.opts.nested)
         reverted_data = {}
         for field_name, field in fields.items():
             field.revert_field(data, field_name, reverted_data)
@@ -368,10 +369,13 @@ class Serializer(BaseSerializer):
 
 
 class ObjectSerializer(Serializer):
-    def get_default_fields(self, obj, nested):
+    def default_fields(self, obj, cls, nested):
         """
         Given an object, return the default set of fields to serialize.
         """
+        if obj is None:
+            raise Exception('ObjectSerializer does not support deserialization')
+
         ret = SortedDict()
         attrs = [key for key in obj.__dict__.keys() if not(key.startswith('_'))]
         for attr in sorted(attrs):
@@ -394,12 +398,14 @@ class ModelSerializer(Serializer):
         related_field = PrimaryKeyRelatedField
         model_field_types = ('pk', 'fields', 'many_to_many')
 
-    def get_default_fields(self, obj, nested):
+    def default_fields(self, obj, cls, nested):
         """
         Return the set of all fields defined on the model.
         """
         fields = []
-        concrete_model = obj._meta.concrete_model
+        if obj is not None:
+            cls = obj.__class__
+        concrete_model = cls._meta.concrete_model
         for field_type in self.opts.model_field_types:
             if field_type == 'pk':
                 # Add pk field, descending into inherited pk if needed
