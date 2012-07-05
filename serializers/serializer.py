@@ -108,8 +108,11 @@ class BaseSerializer(Field):
         pass
 
     _options_class = SerializerOptions
-    _use_sorted_dict = True
+    _use_sorted_dict = True  # Set to False for backwards compatability with unsorted implementations.
     internal_use_only = False  # Backwards compatability
+
+    def getvalue(self):
+        return self.value  # Backwards compatability with deserialization API.
 
     def __init__(self, **kwargs):
         label = kwargs.get('label', None)
@@ -127,6 +130,9 @@ class BaseSerializer(Field):
 
         self.kwargs = kwargs
         self.opts = self._options_class(self.Meta, **kwargs)
+
+    #####
+    # Methods to determine which fields to use when (de)serializing objects.
 
     def get_default_fields(self, obj, nested):
         """
@@ -164,13 +170,8 @@ class BaseSerializer(Field):
 
         return ret
 
-    def get_field_key(self, obj, field_name, field):
-        """
-        Return the key that should be used for a given field.
-        """
-        if getattr(field, 'label', None):
-            return field.label
-        return field_name
+    #####
+    # Field methods - used when the serializer class is itself used as a field.
 
     def initialise(self, *args, **kwargs):
         """
@@ -196,6 +197,17 @@ class BaseSerializer(Field):
             into.update(field_data)
         else:
             into[field_name] = field_data
+
+    #####
+    # Methods to convert or revert from objects <--> primative representations.
+
+    def get_field_key(self, obj, field_name, field):
+        """
+        Return the key that should be used for a given field.
+        """
+        if getattr(field, 'label', None):
+            return field.label
+        return field_name
 
     def convert_object(self, obj):
         if obj in self.stack and not self.opts.is_root:
@@ -280,7 +292,7 @@ class BaseSerializer(Field):
 
     def serialize(self, obj, format=None, **opts):
         """
-        Perform serialization of object into bytestream.
+        Perform serialization of objects into bytestream.
         First converts the objects into primatives, then renders to bytestream.
         """
         self.parent = None
@@ -317,6 +329,9 @@ class BaseSerializer(Field):
 
     def deserialize(self, stream_or_string, format=None):
         """
+        Perform deserialization of bytestream into objects.
+        First parses the bytestream into primative types,
+        then reverts into objects.
         """
         self.parent = None
         self.root = None
@@ -332,9 +347,6 @@ class BaseSerializer(Field):
         else:
             data = stream_or_string
         return self.revert(data)
-
-    def getvalue(self):  # For backwards compatability with existing API.
-        return self.value
 
 
 class Serializer(BaseSerializer):
