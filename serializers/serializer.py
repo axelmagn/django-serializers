@@ -114,10 +114,8 @@ class BaseSerializer(Field):
     def getvalue(self):
         return self.value  # Backwards compatability with deserialization API.
 
-    def __init__(self, **kwargs):
-        label = kwargs.get('label', None)
-        convert = kwargs.get('convert', None)
-        super(BaseSerializer, self).__init__(label=label, convert=convert)
+    def __init__(self, label=None, **kwargs):
+        super(BaseSerializer, self).__init__(label=label)
         self.fields = SortedDict((key, copy.deepcopy(field))
                            for key, field in self.base_fields.items())
 

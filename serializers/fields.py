@@ -15,7 +15,7 @@ import warnings
 class Field(object):
     creation_counter = 0
 
-    def __init__(self, label=None, convert=None):
+    def __init__(self, label=None):
         self.label = label
         self.parent = None
         self.creation_counter = Field.creation_counter
