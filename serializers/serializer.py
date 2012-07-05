@@ -41,20 +41,6 @@ def _is_protected_type(obj):
     )
 
 
-def _remove_items(seq, exclude):
-    """
-    Remove duplicates and items in 'exclude' from list (preserving order).
-    """
-    seen = set()
-    result = []
-    for item in seq:
-        if (item in seen) or (item in exclude):
-            continue
-        seen.add(item)
-        result.append(item)
-    return result
-
-
 def _get_declared_fields(bases, attrs):
     """
     Create a list of serializer field instances from the passed in 'attrs',
@@ -187,6 +173,10 @@ class BaseSerializer(Field):
         return field_name
 
     def initialise(self, *args, **kwargs):
+        """
+        Same behaviour as usual Field, except that we need to keep track
+        of state so that we can deal with handling maximum depth and recursion.
+        """
         super(BaseSerializer, self).initialise(*args, **kwargs)
         parent = self.parent
         self.stack = parent.stack[:]
@@ -196,10 +186,6 @@ class BaseSerializer(Field):
             self.opts.nested = parent.opts.nested
 
     def convert_field(self, obj, field_name):
-        """
-        Same behaviour as usual Field, except that we need to keep track
-        of state so that we can deal with handling maximum depth and recursion.
-        """
         if self.opts.is_root:
             return self.convert(obj)
         return super(BaseSerializer, self).convert_field(obj, field_name)
