@@ -21,32 +21,17 @@ class Field(object):
         self.creation_counter = Field.creation_counter
         Field.creation_counter += 1
 
-    def initialise(self, parent, field_name, obj=None, data=None, data_cls=None):
+    def initialise(self, parent, model_field=None):
         """
         Called to set up a field prior to revert_field or convert_field.
 
         parent - The parent serializer.
-        field_name - The name for this field.
-
-        Either:
-          obj - The object to be serialized.
-        Or:
-          data - The data to be deserialized.
-          data_cls - The class to be created by deserializing.
+        model_field - The model field this field corrosponds to, if one exists.
         """
         self.parent = parent
         self.root = parent.root or parent
-        self.field_name = field_name
-        self.obj = obj
-        self.data = data
-        try:
-            meta = (obj or data_cls)._meta
-            if field_name == 'pk':
-                self.field = meta.pk
-            else:
-                self.field = meta.get_field_by_name(field_name)[0]
-        except:
-            pass
+        if model_field:
+            self.field = model_field
 
     def revert_field(self, data, field_name, into):
         """
@@ -73,6 +58,7 @@ class Field(object):
         Given and object and a field name, returns the value that should be
         serialized for that field.
         """
+        self.obj = obj  # Need to hang onto this in the case of model fields
         if hasattr(self, 'field'):
             return self.convert(self.field._get_val_from_obj(obj))
         return self.convert(getattr(obj, field_name))

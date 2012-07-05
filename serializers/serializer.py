@@ -138,17 +138,30 @@ class BaseSerializer(Field):
         """
         Return the complete set of default fields for the object, as a dict.
         """
-        raise NotImplementedError()
+        return {}
 
     def get_fields(self, obj, nested):
         """
         Returns the complete set of fields for the object, as a dict.
+
+        This will be the set of any explicitly declared fields,
+        plus the set of fields returned by get_default_fields().
         """
         ret = SortedDict()
 
         # Get the explicitly declared fields
         for key, field in self.fields.items():
             ret[key] = field
+            # Determine if the declared field corrosponds to a model field.
+            try:
+                if key == 'pk':
+                    model_field = obj._meta.pk
+                else:
+                    model_field = obj._meta.get_field_by_name(key)[0]
+            except:
+                model_field = None
+            # Set up the field
+            field.initialise(parent=self, model_field=model_field)
 
         # Add in the default fields
         if self.opts.include_default_fields:
@@ -173,13 +186,12 @@ class BaseSerializer(Field):
     #####
     # Field methods - used when the serializer class is itself used as a field.
 
-    def initialise(self, *args, **kwargs):
+    def initialise(self, parent, model_field=None):
         """
         Same behaviour as usual Field, except that we need to keep track
         of state so that we can deal with handling maximum depth and recursion.
         """
-        super(BaseSerializer, self).initialise(*args, **kwargs)
-        parent = self.parent
+        super(BaseSerializer, self).initialise(parent, model_field)
         self.stack = parent.stack[:]
         if parent.opts.nested and not isinstance(parent.opts.nested, bool):
             self.opts.nested = parent.opts.nested - 1
@@ -187,11 +199,16 @@ class BaseSerializer(Field):
             self.opts.nested = parent.opts.nested
 
     def convert_field(self, obj, field_name):
+        self.obj = obj
+        self.field_name = field_name
+
         if self.opts.is_root:
             return self.convert(obj)
         return super(BaseSerializer, self).convert_field(obj, field_name)
 
     def revert_field(self, data, field_name, into):
+        self.data = data
+
         field_data = self.revert(data.get(field_name))
         if self.opts.is_root:
             into.update(field_data)
@@ -212,7 +229,6 @@ class BaseSerializer(Field):
     def convert_object(self, obj):
         if obj in self.stack and not self.opts.is_root:
             field = self.get_fields(self.obj, nested=False)[self.field_name]
-            field.initialise(self, self.field_name, obj=self.obj)
             return field.convert_field(self.obj, self.field_name)
         self.stack.append(obj)
 
@@ -223,7 +239,6 @@ class BaseSerializer(Field):
 
         fields = self.get_fields(obj, nested=self.opts.nested)
         for field_name, field in fields.items():
-            field.initialise(self, field_name, obj=obj)
             key = self.convert_field_key(obj, field_name, field)
             value = field.convert_field(obj, field_name)
             ret.set_with_metadata(key, value, field)
@@ -238,7 +253,6 @@ class BaseSerializer(Field):
         fields = self.get_fields(cls, nested=self.opts.nested)
         reverted_data = {}
         for field_name, field in fields.items():
-            field.initialise(self, field_name, data=data, data_cls=cls)
             field.revert_field(data, field_name, reverted_data)
         return reverted_data
 
@@ -362,9 +376,11 @@ class ObjectSerializer(Serializer):
         attrs = [key for key in obj.__dict__.keys() if not(key.startswith('_'))]
         for attr in sorted(attrs):
             if nested:
-                ret[attr] = self.__class__()
+                field = self.__class__()
             else:
-                ret[attr] = Field()
+                field = Field()
+            field.initialise(parent=self)
+            ret[attr] = field
         return ret
 
 
@@ -411,16 +427,22 @@ class ModelSerializer(Serializer):
                 ])
 
         ret = SortedDict()
-        for field in fields:
-            ret[field.name] = self.get_field(field, nested)
+        for model_field in fields:
+            field = self.get_field(model_field, nested)
+            field.initialise(parent=self, model_field=model_field)
+            ret[model_field.name] = field
         return ret
 
     def get_field(self, model_field, nested):
         if isinstance(model_field, RelatedObject) or model_field.rel:
             if nested:
-                return self.__class__()
-            return self.opts.related_field()
-        return Field()
+                ret = self.__class__()
+            else:
+                ret = self.opts.related_field()
+        else:
+            ret = Field()
+        ret.field = model_field
+        return ret
 
     def convert_field(self, obj, field_name):
         if self.opts.is_root:
