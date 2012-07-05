@@ -244,11 +244,6 @@ class BaseSerializer(Field):
             ret.set_with_metadata(key, value, field)
         return ret
 
-    def revert_class(self, data):
-        if self.opts.is_root:
-            return self.parent.revert_class(self.data)
-        return None
-
     def revert_fields(self, data, cls):
         fields = self.get_fields(cls, nested=self.opts.nested)
         reverted_data = {}
@@ -256,13 +251,16 @@ class BaseSerializer(Field):
             field.revert_field(data, field_name, reverted_data)
         return reverted_data
 
-    def revert_object(self, data):
-        cls = self.revert_class(data)
-        reverted_data = self.revert_fields(data, cls)
-        if cls is None:
-            return reverted_data
+    def revert_class(self, data):
+        if self.opts.is_root:
+            return self.parent.revert_class(self.data)
+        return None
+
+    def revert_object(self, object_attrs, object_cls):
+        if object_cls is None:
+            return object_attrs
         else:
-            return cls(**reverted_data)
+            return object_cls(**object_attrs)
 
     def convert(self, obj):
         """
@@ -288,7 +286,9 @@ class BaseSerializer(Field):
         elif hasattr(data, '__iter__') and not isinstance(data, dict):
             return (self.revert(item) for item in data)
         else:
-            return self.revert_object(data)
+            object_cls = self.revert_class(data)
+            object_attrs = self.revert_fields(data, object_cls)
+            return self.revert_object(object_attrs, object_cls)
 
     def render(self, data, stream, format, **opts):
         """
@@ -458,14 +458,12 @@ class ModelSerializer(Serializer):
             return self.parent.revert_class(self.data)
         return self.opts.model
 
-    def revert_object(self, data):
-        Model = self.revert_class(data)
-        reverted_data = self.revert_fields(data, Model)
+    def revert_object(self, object_attrs, object_cls):
         m2m_data = {}
-        for field in Model._meta.many_to_many:
-            if field.name in reverted_data:
-                m2m_data[field.name] = reverted_data.pop(field.name)
-        return DeserializedObject(Model(**reverted_data), m2m_data)
+        for field in object_cls._meta.many_to_many:
+            if field.name in object_attrs:
+                m2m_data[field.name] = object_attrs.pop(field.name)
+        return DeserializedObject(object_cls(**object_attrs), m2m_data)
 
 
 class DumpDataFields(ModelSerializer):
@@ -475,9 +473,8 @@ class DumpDataFields(ModelSerializer):
         model_field_types = ('local_fields', 'many_to_many')
         related_field = PrimaryKeyOrNaturalKeyRelatedField
 
-    def revert_object(self, data):
-        cls = self.revert_class(data)
-        return self.revert_fields(data, cls)
+    def revert_object(self, object_attrs, object_cls):
+        return object_attrs
 
 
 class DumpDataSerializer(ModelSerializer):
