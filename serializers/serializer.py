@@ -445,7 +445,6 @@ class ModelSerializer(Serializer):
                 ret = self.opts.related_field()
         else:
             ret = Field()
-        ret.field = model_field
         return ret
 
     def convert_field(self, obj, field_name):
