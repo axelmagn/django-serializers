@@ -113,8 +113,7 @@ class BaseSerializer(Field):
 
     def __init__(self, label=None, **kwargs):
         super(BaseSerializer, self).__init__(label=label)
-        self.fields = SortedDict((key, copy.deepcopy(field))
-                           for key, field in self.base_fields.items())
+        self.fields = copy.deepcopy(self.base_fields)
 
         # If one of our fields has 'is_root' set, pass through some of our args
         for field in self.fields.values():
