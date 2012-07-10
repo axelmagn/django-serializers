@@ -4,7 +4,7 @@ from django.core import serializers
 from django.db import models
 from django.test import TestCase
 from django.utils.datastructures import SortedDict
-from serializers import ObjectSerializer, ModelSerializer, DumpDataSerializer
+from serializers import Serializer, ObjectSerializer, ModelSerializer, DumpDataSerializer
 from serializers.fields import Field, NaturalKeyRelatedField, PrimaryKeyRelatedField
 
 
@@ -252,11 +252,8 @@ class SerializerFieldTests(SerializationTestCase):
         Setting include_default_fields to `False` fields on a serializer
         ensures that only explicitly declared fields are used.
         """
-        class CustomSerializer(ObjectSerializer):
+        class CustomSerializer(Serializer):
             full_name = ObjectSerializer()
-
-            class Meta:
-                include_default_fields = False
 
         expected = {
             'full_name': 'john doe',
@@ -433,12 +430,9 @@ class NestedSerializationTests(SerializationTestCase):
             class Meta:
                 fields = ('full_name',)
 
-        class PersonSerializer(ObjectSerializer):
+        class PersonSerializer(Serializer):
             full_name = Field()
             siblings = SiblingsSerializer()
-
-            class Meta:
-                include_default_fields = False
 
         expected = {
             'full_name': 'john doe',

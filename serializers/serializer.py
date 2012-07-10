@@ -73,9 +73,6 @@ class SerializerOptions(object):
         self.nested = _get_option('nested', kwargs, meta, False)
         self.fields = _get_option('fields', kwargs, meta, ())
         self.exclude = _get_option('exclude', kwargs, meta, ())
-        self.include_default_fields = _get_option(
-            'include_default_fields', kwargs, meta, True
-        )
         self.is_root = _get_option('is_root', kwargs, meta, False)
         self.renderer_classes = _get_option('renderer_classes', kwargs, meta, {
             'xml': XMLRenderer,
@@ -162,10 +159,10 @@ class BaseSerializer(Field):
             field.initialise(parent=self, model_field=model_field)
 
         # Add in the default fields
-        if self.opts.include_default_fields:
-            for key, val in self.default_fields(obj, cls, nested).items():
-                if key not in ret:
-                    ret[key] = val
+        fields = self.default_fields(obj, cls, nested)
+        for key, val in fields.items():
+            if key not in ret:
+                ret[key] = val
 
         # If 'fields' is specified, use those fields, in that order.
         if self.opts.fields:
@@ -491,7 +488,6 @@ class DumpDataSerializer(ModelSerializer):
     fields = DumpDataFields(is_root=True)
 
     class Meta:
-        include_default_fields = False
         renderer_classes = {
             'xml': DumpDataXMLRenderer,
             'json': JSONRenderer,
@@ -501,6 +497,9 @@ class DumpDataSerializer(ModelSerializer):
             'xml': DumpDataXMLParser,
             'json': JSONParser
         }
+
+    def default_fields(self, obj, cls, nested):
+        return {}
 
     def revert_class(self, data):
         try:
