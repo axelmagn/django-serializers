@@ -115,13 +115,6 @@ class BaseSerializer(Field):
         super(BaseSerializer, self).__init__(label=label)
         self.fields = copy.deepcopy(self.base_fields)
 
-        # If one of our fields has 'is_root' set, pass through some of our args
-        for field in self.fields.values():
-            if hasattr(field, 'opts') and getattr(field.opts, 'is_root', None):
-                for keyword in ('fields', 'exclude', 'nested'):
-                    if keyword in kwargs:
-                        setattr(field.opts, keyword, kwargs.pop(keyword))
-
         self.kwargs = kwargs
         self.opts = self._options_class(self.Meta, **kwargs)
 
