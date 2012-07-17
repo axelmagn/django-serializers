@@ -129,7 +129,7 @@ class DumpDataXMLRenderer(BaseRenderer):
 
         # Due to implmentation details, the existing xml dumpdata format
         # renders ordered fields, whilst json and yaml render unordered
-        # fields (ordering determined by `dict`)
+        # fields (ordering determined by python's `dict` implementation)
         # To maintain byte-for-byte backwards compatability,
         # we'll deal with that now.
         sorted_items = sorted(fields.items_with_metadata(),
@@ -146,10 +146,10 @@ class DumpDataXMLRenderer(BaseRenderer):
                 self.handle_many_to_many(xml, value)
             elif isinstance(value, (datetime.datetime, datetime.date, datetime.time)):
                 self.handle_datetimes(xml, value)
-            elif value is not None:
-                self.handle_value(xml, value)
-            else:
+            elif value is None:
                 self.handle_none(xml)
+            else:
+                self.handle_value(xml, value)
 
             xml.endElement('field')
         xml.endElement('object')
