@@ -114,7 +114,6 @@ class BaseSerializer(Field):
     def __init__(self, label=None, **kwargs):
         super(BaseSerializer, self).__init__(label=label)
         self.fields = copy.deepcopy(self.base_fields)
-        self.kwargs = kwargs
         self.opts = self._options_class(self.Meta, **kwargs)
 
     #####
