@@ -66,19 +66,19 @@ def _get_option(name, kwargs, meta, default):
 
 class SerializerOptions(object):
     def __init__(self, meta, **kwargs):
-        self.format = _get_option('format', kwargs, meta, None)
+        self.format = getattr(meta, 'format', None)
         self.nested = _get_option('nested', kwargs, meta, False)
-        self.fields = _get_option('fields', kwargs, meta, ())
-        self.exclude = _get_option('exclude', kwargs, meta, ())
+        self.fields = getattr(meta, 'fields', ())
+        self.exclude = getattr(meta, 'exclude', ())
         self.is_root = _get_option('is_root', kwargs, meta, False)
-        self.renderer_classes = _get_option('renderer_classes', kwargs, meta, {
+        self.renderer_classes = getattr(meta, 'renderer_classes', {
             'xml': XMLRenderer,
             'json': JSONRenderer,
             'yaml': YAMLRenderer,
             'csv': CSVRenderer,
             'html': HTMLRenderer,
         })
-        self.parser_classes = _get_option('parser_classes', kwargs, meta, {
+        self.parser_classes = getattr(meta, 'parser_classes', {
             'json': JSONParser
         })
 
@@ -86,7 +86,7 @@ class SerializerOptions(object):
 class ModelSerializerOptions(SerializerOptions):
     def __init__(self, meta, **kwargs):
         super(ModelSerializerOptions, self).__init__(meta, **kwargs)
-        self.model_field_types = _get_option('model_field_types', kwargs, meta, None)
+        self.model_field_types = getattr(meta, 'model_field_types', None)
         self.model = _get_option('model', kwargs, meta, None)
 
 
