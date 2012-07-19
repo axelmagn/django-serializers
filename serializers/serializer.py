@@ -1,5 +1,4 @@
 from decimal import Decimal
-from django.db import models
 from django.core.serializers.base import DeserializedObject
 from django.utils.datastructures import SortedDict
 import copy
@@ -11,11 +10,9 @@ from serializers.renderers import (
     XMLRenderer,
     HTMLRenderer,
     CSVRenderer,
-    DumpDataXMLRenderer
 )
 from serializers.parsers import (
     JSONParser,
-    DumpDataXMLParser
 )
 from serializers.fields import *
 from serializers.utils import (
@@ -454,60 +451,3 @@ class ModelSerializer(Serializer):
             if field.name in object_attrs:
                 m2m_data[field.name] = object_attrs.pop(field.name)
         return DeserializedObject(object_cls(**object_attrs), m2m_data)
-
-
-class DumpDataFields(ModelSerializer):
-    _use_sorted_dict = False  # Ensure byte-for-byte backwards compatability
-
-    class Meta:
-        model_field_types = ('local_fields', 'many_to_many')
-        related_field = PrimaryKeyOrNaturalKeyRelatedField
-
-    def revert_object(self, object_attrs, object_cls):
-        return object_attrs
-
-
-class DumpDataSerializer(ModelSerializer):
-    """
-    A serializer that is intended to produce dumpdata formatted structures.
-    """
-    _use_sorted_dict = False  # Ensure byte-for-byte backwards compatability
-
-    pk = Field()
-    model = ModelNameField()
-    fields = DumpDataFields(is_root=True)
-
-    class Meta:
-        renderer_classes = {
-            'xml': DumpDataXMLRenderer,
-            'json': JSONRenderer,
-            'yaml': YAMLRenderer,
-        }
-        parser_classes = {
-            'xml': DumpDataXMLParser,
-            'json': JSONParser
-        }
-
-    def default_fields(self, obj, cls, nested):
-        return {}
-
-    def revert_class(self, data):
-        try:
-            return models.get_model(*data['model'].split("."))
-        except TypeError:
-            raise DeserializationError(u"Invalid model identifier: '%s'" % value)
-
-
-class JSONDumpDataSerializer(DumpDataSerializer):
-    class Meta(DumpDataSerializer.Meta):
-        format = 'json'
-
-
-class YAMLDumpDataSerializer(DumpDataSerializer):
-    class Meta(DumpDataSerializer.Meta):
-        format = 'yaml'
-
-
-class XMLDumpDataSerializer(DumpDataSerializer):
-    class Meta(DumpDataSerializer.Meta):
-        format = 'xml'

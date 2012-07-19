@@ -184,43 +184,6 @@ class NaturalKeyRelatedField(RelatedField):
         return manager.get_by_natural_key(*value).pk
 
 
-class PrimaryKeyOrNaturalKeyRelatedField(PrimaryKeyRelatedField):
-    """
-    Serializes to either pk or natural key, depending on if 'use_natural_keys'
-    is specified when calling `serialize()`.
-    """
-    def __init__(self, *args, **kwargs):
-        self.nk_field = NaturalKeyRelatedField()
-        self.pk_field = PrimaryKeyRelatedField()
-        super(PrimaryKeyOrNaturalKeyRelatedField, self).__init__(*args, **kwargs)
-
-    def convert_field(self, obj, field_name):
-        if self.root.options.get('use_natural_keys', False):
-            self.is_natural_key = True
-            return self.nk_field.convert_field(obj, field_name)
-        self.is_natural_key = False
-        return self.pk_field.convert_field(obj, field_name)
-
-    def revert_field(self, data, field_name, into):
-        value = data.get(field_name)
-        if hasattr(self.field.rel.to._default_manager, 'get_by_natural_key') and hasattr(value, '__iter__'):
-            self.nk_field.field = self.field  # Total hack
-            return self.nk_field.revert_field(data, field_name, into)
-        return self.pk_field.revert_field(data, field_name, into)
-
-
-class ModelNameField(Field):
-    """
-    Serializes the model instance's model name.  Eg. 'auth.User'.
-    """
-    def convert_field(self, obj, field_name):
-        return smart_unicode(obj._meta)
-
-    def revert_field(self, data, field_name, into):
-        # We don't actually want to restore the model name metadata to a field.
-        pass
-
-
 class BooleanField(Field):
     error_messages = {
         'invalid': _(u"'%s' value must be either True or False."),
