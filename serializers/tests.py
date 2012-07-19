@@ -418,7 +418,7 @@ class NestedSerializationTests(SerializationTestCase):
                 }
             ]
         }
-        self.assertEquals(ObjectSerializer(nested=True).serialize(self.obj), expected)
+        self.assertEquals(ObjectSerializer().serialize(self.obj, nested=True), expected)
 
     def test_nested_serialization_with_args(self):
         """
@@ -463,7 +463,7 @@ class NestedSerializationTests(SerializationTestCase):
             ]
         }
 
-        self.assertEquals(ObjectSerializer(nested=False).serialize(self.obj), expected)
+        self.assertEquals(ObjectSerializer().serialize(self.obj), expected)
 
     def test_depth_one_serialization(self):
         """
@@ -489,7 +489,7 @@ class NestedSerializationTests(SerializationTestCase):
             ]
         }
 
-        self.assertEquals(ObjectSerializer(nested=1).serialize(self.obj), expected)
+        self.assertEquals(ObjectSerializer().serialize(self.obj, nested=1), expected)
 
 
 class RecursiveSerializationTests(SerializationTestCase):
@@ -514,7 +514,7 @@ class RecursiveSerializationTests(SerializationTestCase):
                     'father': 'john doe'
             }
         }
-        self.assertEquals(ObjectSerializer(nested=True).serialize(self.obj), expected)
+        self.assertEquals(ObjectSerializer().serialize(self.obj, nested=True), expected)
 
 
 ##### Simple models without relationships. #####
@@ -860,8 +860,7 @@ class TestOneToOneModel(SerializationTestCase):
     """
     def setUp(self):
         self.dumpdata = FixtureSerializer()
-        self.nested_model = ModelSerializer(nested=True)
-        self.flat_model = ModelSerializer(model=Profile)
+        self.profile_serializer = ModelSerializer(model=Profile)
         user = User.objects.create(email='joe@example.com')
         Profile.objects.create(
             user=user,
@@ -898,7 +897,7 @@ class TestOneToOneModel(SerializationTestCase):
             'date_of_birth': datetime.datetime(day=5, month=4, year=1979)
         }
         self.assertEquals(
-            self.nested_model.serialize(Profile.objects.get(id=1)),
+            self.profile_serializer.serialize(Profile.objects.get(id=1), nested=True),
             expected
         )
 
@@ -910,12 +909,12 @@ class TestOneToOneModel(SerializationTestCase):
             'date_of_birth': datetime.datetime(day=5, month=4, year=1979)
         }
         self.assertEquals(
-            self.flat_model.serialize(Profile.objects.get(id=1)),
+            self.profile_serializer.serialize(Profile.objects.get(id=1)),
             expected
         )
 
     def test_modelserializer_deserialize(self):
-        lhs = get_deserialized(Profile.objects.all(), serializer=self.flat_model)
+        lhs = get_deserialized(Profile.objects.all(), serializer=self.profile_serializer)
         rhs = get_deserialized(Profile.objects.all())
         self.assertTrue(deserialized_eq(lhs, rhs))
 
@@ -993,8 +992,13 @@ class TestFKModel(SerializationTestCase):
     Test one-to-one field relationship on a model.
     """
     def setUp(self):
+        class NestedVehicleSerializer(ModelSerializer):
+            class Meta:
+                model = Vehicle
+                nested = True
+
         self.dumpdata = FixtureSerializer()
-        self.nested_model = ModelSerializer(nested=True)
+        self.nested_model = NestedVehicleSerializer()
         self.flat_model = ModelSerializer(model=Vehicle)
         self.owner = Owner.objects.create(
             email='tom@example.com'
@@ -1122,8 +1126,13 @@ class TestManyToManyModel(SerializationTestCase):
     Test one-to-one field relationship on a model.
     """
     def setUp(self):
+        class NestedBookSerializer(ModelSerializer):
+            class Meta:
+                model = Book
+                nested = True
+
         self.dumpdata = FixtureSerializer()
-        self.nested_model = ModelSerializer(nested=True)
+        self.nested_model = NestedBookSerializer()
         self.flat_model = ModelSerializer(model=Book)
         self.lucy = Author.objects.create(
             name='Lucy Black'

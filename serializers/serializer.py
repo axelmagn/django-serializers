@@ -67,7 +67,7 @@ def _get_option(name, kwargs, meta, default):
 class SerializerOptions(object):
     def __init__(self, meta, **kwargs):
         self.format = getattr(meta, 'format', None)
-        self.nested = _get_option('nested', kwargs, meta, False)
+        self.nested = getattr(meta, 'nested', False)
         self.fields = getattr(meta, 'fields', ())
         self.exclude = getattr(meta, 'exclude', ())
         self.is_root = _get_option('is_root', kwargs, meta, False)
@@ -86,7 +86,7 @@ class SerializerOptions(object):
 class ModelSerializerOptions(SerializerOptions):
     def __init__(self, meta, **kwargs):
         super(ModelSerializerOptions, self).__init__(meta, **kwargs)
-        self.model_field_types = getattr(meta, 'model_field_types', None)
+        self.model_field_types = getattr(meta, 'model_field_types', ('pk', 'fields', 'many_to_many'))
         self.model = _get_option('model', kwargs, meta, None)
 
 
@@ -373,9 +373,6 @@ class ModelSerializer(Serializer):
     A serializer that deals with model instances and querysets.
     """
     _options_class = ModelSerializerOptions
-
-    class Meta:
-        model_field_types = ('pk', 'fields', 'many_to_many')
 
     def default_fields(self, obj, cls, nested):
         """
