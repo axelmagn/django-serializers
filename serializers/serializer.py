@@ -87,7 +87,6 @@ class ModelSerializerOptions(SerializerOptions):
     def __init__(self, meta, **kwargs):
         super(ModelSerializerOptions, self).__init__(meta, **kwargs)
         self.model_field_types = _get_option('model_field_types', kwargs, meta, None)
-        self.related_field = _get_option('related_field', kwargs, meta, PrimaryKeyRelatedField)
         self.model = _get_option('model', kwargs, meta, None)
 
 
@@ -376,7 +375,6 @@ class ModelSerializer(Serializer):
     _options_class = ModelSerializerOptions
 
     class Meta:
-        related_field = PrimaryKeyRelatedField
         model_field_types = ('pk', 'fields', 'many_to_many')
 
     def default_fields(self, obj, cls, nested):
@@ -415,20 +413,34 @@ class ModelSerializer(Serializer):
 
         ret = SortedDict()
         for model_field in fields:
-            field = self.get_field(model_field, nested)
+            if isinstance(model_field, RelatedObject) or model_field.rel:
+                if nested:
+                    field = self.get_nested_field(model_field)
+                else:
+                    field = self.get_related_field(model_field)
+            else:
+                field = self.get_field(model_field)
             field.initialise(parent=self, model_field=model_field)
             ret[model_field.name] = field
         return ret
 
-    def get_field(self, model_field, nested):
-        if isinstance(model_field, RelatedObject) or model_field.rel:
-            if nested:
-                ret = self.__class__()
-            else:
-                ret = self.opts.related_field()
-        else:
-            ret = Field()
-        return ret
+    def get_nested_field(self, model_field):
+        """
+        Creates a default instance of a nested relational field.
+        """
+        return self.__class__()
+
+    def get_related_field(self, model_field):
+        """
+        Creates a default instance of a flat relational field.
+        """
+        return PrimaryKeyRelatedField()
+
+    def get_field(self, model_field):
+        """
+        Creates a default instance of a basic field.
+        """
+        return Field()
 
     def convert_field(self, obj, field_name):
         if self.opts.is_root:

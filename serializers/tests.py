@@ -791,10 +791,12 @@ class TestNaturalKey(SerializationTestCase):
         Ensure that we can use NaturalKeyRelatedField to represent foreign
         key relationships.
         """
-        serializer = ModelSerializer(
-            related_field=NaturalKeyRelatedField,
-            depth=0
-        )
+        class NaturalKeyModelSerializer(ModelSerializer):
+            def get_related_field(self, model_field):
+                return NaturalKeyRelatedField()
+
+        serializer = NaturalKeyModelSerializer()
+
         expected = [{
             "owner": (u"joe", u"adams"),  # NK, not PK
             "id": 1,

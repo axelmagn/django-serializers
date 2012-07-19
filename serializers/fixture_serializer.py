@@ -55,7 +55,9 @@ class FixtureFields(ModelSerializer):
 
     class Meta:
         model_field_types = ('local_fields', 'many_to_many')
-        related_field = PrimaryKeyOrNaturalKeyRelatedField
+
+    def get_related_field(self, model_field):
+        return PrimaryKeyOrNaturalKeyRelatedField()
 
     def revert_object(self, object_attrs, object_cls):
         return object_attrs

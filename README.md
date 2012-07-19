@@ -270,7 +270,7 @@ Describe how to write totally custom serializer classes, that determine their fi
 
 Give an example, using an `ObjectSerializer` class, that serializes all the instance attributes on an object. 
 
-* `.determine_fields(self, obj, cls, nested)`
+* `.default_fields(self, obj, cls, nested)`
 * `.determine_class(self, data)`
 
 ---
@@ -331,7 +331,7 @@ Methods:
 * `.deserialize(self, format, stream)`
 * `.to_native(self, obj)`
 * `.from_native(self, data)`
-* `.determine_fields(self, obj, cls, data)`
+* `.default_fields(self, obj, cls, data)`
 * `.determine_class(self, data)`
 * `.get_field_name(self, obj, field_name)`
 * `.create_object(self, cls, attrs)`
