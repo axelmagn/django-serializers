@@ -9,6 +9,6 @@ from serializers.fields import (
     PrimaryKeyRelatedField,
     NaturalKeyRelatedField,
 )
-from serializers.fixture_serializer import DumpDataSerializer
+from serializers.fixture_serializer import FixtureSerializer
 
 __version__ = '0.5.0'

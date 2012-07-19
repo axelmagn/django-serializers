@@ -1,7 +1,7 @@
-from serializers import DumpDataSerializer
+from serializers import FixtureSerializer
 
 
-class Serializer(DumpDataSerializer):
+class Serializer(FixtureSerializer):
     internal_use_only = True  # Backwards compatability
 
 Deserializer = Serializer

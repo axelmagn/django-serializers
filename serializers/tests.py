@@ -4,7 +4,7 @@ from django.core import serializers
 from django.db import models
 from django.test import TestCase
 from django.utils.datastructures import SortedDict
-from serializers import Serializer, ObjectSerializer, ModelSerializer, DumpDataSerializer
+from serializers import Serializer, ObjectSerializer, ModelSerializer, FixtureSerializer
 from serializers.fields import Field, NaturalKeyRelatedField, PrimaryKeyRelatedField
 
 
@@ -528,7 +528,7 @@ class RaceEntry(models.Model):
 
 class TestSimpleModel(SerializationTestCase):
     def setUp(self):
-        self.dumpdata = DumpDataSerializer()
+        self.dumpdata = FixtureSerializer()
         self.serializer = ModelSerializer(model=RaceEntry)
         RaceEntry.objects.create(
             name='John doe',
@@ -599,7 +599,7 @@ class TestSimpleModel(SerializationTestCase):
 
 class TestNullPKModel(SerializationTestCase):
     def setUp(self):
-        self.dumpdata = DumpDataSerializer()
+        self.dumpdata = FixtureSerializer()
         self.serializer = ModelSerializer(model=RaceEntry)
         self.objs = [RaceEntry(
             name='John doe',
@@ -655,7 +655,7 @@ class PremiumAccount(Account):
 
 class TestModelInheritance(SerializationTestCase):
     def setUp(self):
-        self.dumpdata = DumpDataSerializer()
+        self.dumpdata = FixtureSerializer()
         self.serializer = ModelSerializer(model=PremiumAccount)
         PremiumAccount.objects.create(
             points=42,
@@ -741,7 +741,7 @@ class TestNaturalKey(SerializationTestCase):
     Test one-to-one field relationship on a model.
     """
     def setUp(self):
-        self.dumpdata = DumpDataSerializer()
+        self.dumpdata = FixtureSerializer()
         joe = PetOwner.objects.create(
             first_name='joe',
             last_name='adams',
@@ -857,7 +857,7 @@ class TestOneToOneModel(SerializationTestCase):
     Test one-to-one field relationship on a model.
     """
     def setUp(self):
-        self.dumpdata = DumpDataSerializer()
+        self.dumpdata = FixtureSerializer()
         self.nested_model = ModelSerializer(nested=True)
         self.flat_model = ModelSerializer(model=Profile)
         user = User.objects.create(email='joe@example.com')
@@ -991,7 +991,7 @@ class TestFKModel(SerializationTestCase):
     Test one-to-one field relationship on a model.
     """
     def setUp(self):
-        self.dumpdata = DumpDataSerializer()
+        self.dumpdata = FixtureSerializer()
         self.nested_model = ModelSerializer(nested=True)
         self.flat_model = ModelSerializer(model=Vehicle)
         self.owner = Owner.objects.create(
@@ -1120,7 +1120,7 @@ class TestManyToManyModel(SerializationTestCase):
     Test one-to-one field relationship on a model.
     """
     def setUp(self):
-        self.dumpdata = DumpDataSerializer()
+        self.dumpdata = FixtureSerializer()
         self.nested_model = ModelSerializer(nested=True)
         self.flat_model = ModelSerializer(model=Book)
         self.lucy = Author.objects.create(
@@ -1165,7 +1165,7 @@ class TestManyToManyModel(SerializationTestCase):
 
     def test_m2m_dumpdata_xml(self):
         # # Hack to ensure field ordering is correct for xml
-        # dumpdata = DumpDataSerializer()
+        # dumpdata = FixtureSerializer()
         # dumpdata.fields['fields'].opts.preserve_field_order = True
         self.assertEquals(
             self.dumpdata.serialize(Book.objects.all(), 'xml'),
@@ -1236,7 +1236,7 @@ class TestManyToManyThroughModel(SerializationTestCase):
     Test one-to-one field relationship on a model with a 'through' relationship.
     """
     def setUp(self):
-        self.dumpdata = DumpDataSerializer()
+        self.dumpdata = FixtureSerializer()
         right = Anchor.objects.create(data='foobar')
         left = M2MIntermediateData.objects.create()
         Intermediate.objects.create(extra='wibble', left=left, right=right)
@@ -1264,8 +1264,8 @@ class FieldsTest(SerializationTestCase):
         obj = ComplexModel(field1='first', field2='second', field3='third')
 
         # Serialize then deserialize the test database
-        serialized_data = DumpDataSerializer().serialize([obj], 'json', indent=2, fields=('field1', 'field3'))
-        result = next(DumpDataSerializer().deserialize(serialized_data, 'json'))
+        serialized_data = FixtureSerializer().serialize([obj], 'json', indent=2, fields=('field1', 'field3'))
+        result = next(FixtureSerializer().deserialize(serialized_data, 'json'))
 
         # Check that the deserialized object contains data in only the serialized fields.
         self.assertEqual(result.object.field1, 'first')
@@ -1304,10 +1304,10 @@ class NonIntegerPKTests(SerializationTestCase):
         ac.save()
         mv.save()
 
-        serial_str = DumpDataSerializer().serialize([mv], format='json')
+        serial_str = FixtureSerializer().serialize([mv], format='json')
         self.assertEqual(serializers.serialize('json', [mv]), serial_str)
 
-        obj_list = list(DumpDataSerializer().deserialize(serial_str, format='json'))
+        obj_list = list(FixtureSerializer().deserialize(serial_str, format='json'))
         mv_obj = obj_list[0].object
         self.assertEqual(mv_obj.title, movie_title)
 
@@ -1319,10 +1319,10 @@ class NonIntegerPKTests(SerializationTestCase):
         ac.save()
         mv.save()
 
-        serial_str = DumpDataSerializer().serialize([ac], format='json')
+        serial_str = FixtureSerializer().serialize([ac], format='json')
         self.assertEqual(serializers.serialize('json', [ac]), serial_str)
 
-        obj_list = list(DumpDataSerializer().deserialize(serial_str, format='json'))
+        obj_list = list(FixtureSerializer().deserialize(serial_str, format='json'))
         ac_obj = obj_list[0].object
         self.assertEqual(ac_obj.name, actor_name)
 
@@ -1335,7 +1335,7 @@ class FileFieldTests(SerializationTestCase):
     def test_serialize_file_field(self):
         FileData().save()
         self.assertEquals(
-            DumpDataSerializer().serialize(FileData.objects.all(), 'json'),
+            FixtureSerializer().serialize(FileData.objects.all(), 'json'),
             serializers.serialize('json', FileData.objects.all())
         )
 
@@ -1400,8 +1400,8 @@ class TestRoundtrips(SerializationTestCase):
 
     def test_serializer_roundtrip(self):
         """Tests that serialized content can be deserialized."""
-        serial_str = DumpDataSerializer().serialize(Article.objects.all(), format='xml')
-        models = list(DumpDataSerializer().deserialize(serial_str, format='xml'))
+        serial_str = FixtureSerializer().serialize(Article.objects.all(), format='xml')
+        models = list(FixtureSerializer().deserialize(serial_str, format='xml'))
         self.assertEqual(len(models), 2)
 
     def test_altering_serialized_output(self):
@@ -1411,10 +1411,10 @@ class TestRoundtrips(SerializationTestCase):
         """
         old_headline = "Poker has no place on ESPN"
         new_headline = "Poker has no place on television"
-        serial_str = DumpDataSerializer().serialize(Article.objects.all(), format='xml')
+        serial_str = FixtureSerializer().serialize(Article.objects.all(), format='xml')
 
         serial_str = serial_str.replace(old_headline, new_headline)
-        models = list(DumpDataSerializer().deserialize(serial_str, format='xml'))
+        models = list(FixtureSerializer().deserialize(serial_str, format='xml'))
 
         # Prior to saving, old headline is in place
         self.assertTrue(Article.objects.filter(headline=old_headline))

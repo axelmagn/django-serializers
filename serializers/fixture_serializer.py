@@ -50,7 +50,7 @@ class ModelNameField(Field):
         pass
 
 
-class DumpDataFields(ModelSerializer):
+class FixtureFields(ModelSerializer):
     _use_sorted_dict = False  # Ensure byte-for-byte backwards compatability
 
     class Meta:
@@ -61,7 +61,7 @@ class DumpDataFields(ModelSerializer):
         return object_attrs
 
 
-class DumpDataSerializer(ModelSerializer):
+class FixtureSerializer(ModelSerializer):
     """
     A serializer that is intended to produce dumpdata formatted structures.
     """
@@ -69,7 +69,7 @@ class DumpDataSerializer(ModelSerializer):
 
     pk = Field()
     model = ModelNameField()
-    fields = DumpDataFields(is_root=True)
+    fields = FixtureFields(is_root=True)
 
     class Meta:
         renderer_classes = {

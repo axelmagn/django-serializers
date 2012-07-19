@@ -1,8 +1,8 @@
-from serializers import DumpDataSerializer
+from serializers import FixtureSerializer
 
 
-class Serializer(DumpDataSerializer):
-    class Meta(DumpDataSerializer.Meta):
+class Serializer(FixtureSerializer):
+    class Meta(FixtureSerializer.Meta):
         format = 'xml'
 
 Deserializer = Serializer
