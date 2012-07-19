@@ -111,6 +111,8 @@ class BaseSerializer(Field):
         super(BaseSerializer, self).__init__(label=label)
         self.fields = copy.deepcopy(self.base_fields)
         self.opts = self._options_class(self.Meta, **kwargs)
+        self.parent = None
+        self.root = None
 
     #####
     # Methods to determine which fields to use when (de)serializing objects.
@@ -291,8 +293,6 @@ class BaseSerializer(Field):
         Perform serialization of objects into bytestream.
         First converts the objects into primatives, then renders to bytestream.
         """
-        self.parent = None
-        self.root = None
         self.stack = []
 
         # If one of our fields has 'is_root' set, pass through some of our args
@@ -328,8 +328,6 @@ class BaseSerializer(Field):
         First parses the bytestream into primative types,
         then reverts into objects.
         """
-        self.parent = None
-        self.root = None
         self.stack = []
 
         format = format or self.opts.format
