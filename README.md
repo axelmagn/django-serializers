@@ -67,7 +67,7 @@ Declaring a serializer looks very similar to declaring a form:
     class CommentSerializer(Serializer):
         title = CharField(blank=True)
         content = CharField()
-        created = DateTimeField(label='created time')
+        created = DateTimeField(field_name='created time')
 
 We can now use `CommentSerializer` to serialize a comment, or list of comments, into `json`, `yaml`, `xml` or `csv` formats:
 
@@ -138,9 +138,9 @@ The `Serializer` class is itself a type of `Field`, and can be used to represent
 
 ## Creating custom fields
 
-If you want to create a custom field, you'll probably want to override either one or both of the `.convert()` and `.revert()` methods.  These two methods are used to convert between the intial datatype, and a primative, serializable datatype.  Primative datatypes may be any of a number, string, date/time/datetime or None.  They may also be any list or dictionary like object that only contains other primative objects.
+If you want to create a custom field, you'll probably want to override either one or both of the `.to_native()` and `.from_native()` methods.  These two methods are used to convert between the intial datatype, and a primative, serializable datatype.  Primative datatypes may be any of a number, string, date/time/datetime or None.  They may also be any list or dictionary like object that only contains other primative objects.
 
-The `.convert()` method is called to convert the initial datatype into a primative, serializable datatype.  The `revert()` method is called to restore a primative datatype into it's initial representation.
+The `.to_native()` method is called to convert the initial datatype into a primative, serializable datatype.  The `from_native()` method is called to restore a primative datatype into it's initial representation.
 
 Let's look at an example of serializing a class that represents an RGB color value:
 
@@ -159,27 +159,27 @@ Let's look at an example of serializing a class that represents an RGB color val
         Color objects are serialized into "rgb(#, #, #)" notation.
         """
 
-        def convert(self, obj):
+        def to_native(self, obj):
             return "rgb(%d, %d, %d)" % (obj.red, obj.green, obj.blue)
       
-        def revert(self, data):
+        def from_native(self, data):
             data = data.strip('rgb(').rstrip(')')
             red, green, blue = [int(col) for col in data.split(',')]
             return Color(red, green, blue)
             
 
-By default field values are treated as mapping to an attribute on the object.  If you need to customize how the field value is accessed and set you need to override `.convert_field()` and/or `.revert_field()`.
+By default field values are treated as mapping to an attribute on the object.  If you need to customize how the field value is accessed and set you need to override `.field_to_native()` and/or `.field_from_native()`.
 
 As an example, let's create a field that can be used represent the class name of the object being serialized:
 
     class ClassNameField(Field):
-        def convert_field(self, obj, field_name):
+        def field_to_native(self, obj, field_name):
             """
             Serialize the object's class name, not an attribute of the object.
             """
             return obj.__class__.__name__
-        
-        def revert_field(self, data, field_name, into):
+
+        def field_from_native(self, data, field_name, into):
             """
             We don't want to set anything when we revert this field.
             """
@@ -188,6 +188,8 @@ As an example, let's create a field that can be used represent the class name of
 ---
 
 # Working with ModelSerializers
+
+Typically the serializer classes will map closely to the model
 
     class AccountSerializer(ModelSerializer):
         class Meta:
@@ -198,15 +200,20 @@ As an example, let's create a field that can be used represent the class name of
 ## Specifying fields explicitly 
 
     class AccountSerializer(ModelSerializer):
-        get_absolute_url = Field(label='url', readonly=True)
+        get_absolute_url = Field(field_name='url', read_only=True)
         group = NaturalKeyField()
 
         class Meta:
             model = Account
 
-* Mention relation fields and reverse relations.
 * Mention properties.
 * May be callables
+
+## Relational fields
+
+* Can be used for relationships & reverse relationships
+* PrimaryKeyField, NaturalKeyField
+* Sublclassing RelatedField.
 
 ## Specifying which fields should be included
 
@@ -274,6 +281,8 @@ Give an example, using an `ObjectSerializer` class, that serializes all the inst
 
 The base class for basic field types is `Field`.
 
+Classes:
+
 * `BooleanField`
 * `CharField`
 * `DateField`
@@ -281,18 +290,56 @@ The base class for basic field types is `Field`.
 * `IntegerField`
 * `FloatField`
 
+Methods:
+
+* `.__init__(self, ...)`
+* `.initialize(self, parent)`
+* `.to_native(self, value)`
+* `.from_native(self, value)`
+* `.field_to_native(self, obj, attr)`
+* `.field_from_native(self, data, field_name, into)`
+* `.attributes(self)`
+
+Attributes:
+
+* `.root`
+* `.parent`
+* `.context`
+* `.model_field`
+
 ## Relational field types
 
 The base class for relational field types is `RelatedField`.
+
+Classes:
 
 * `PrimaryKeyField`
 * `NaturalKeyField`
 
 ## Serializers
 
+Classes:
+
 * `Serializer`
 * `ModelSerializer`
 * `FixtureSerializer`
+
+Methods:
+
+* `.__init__(self, context=None, nested=None)`
+* `.serialize(self, format, object, fields=None, exclude=None, **options)`
+* `.deserialize(self, format, stream)`
+* `.to_native(self, obj)`
+* `.from_native(self, data)`
+* `.determine_fields(self, obj, cls, data)`
+* `.determine_class(self, data)`
+* `.get_field_name(self, obj, field_name)`
+* `.create_object(self, cls, attrs)`
+
+Attributes:
+
+* `.opts`
+* `.fields`
 
 ## Parsers & Renderers
 
@@ -302,6 +349,11 @@ The base classes are `Parser` and `Renderer`.
 * `YAMLParser`/`YAMLRenderer`
 * `JSONParser`/`JSONRenderer`
 * `CSVParser`/`CSVRenderer`
+
+Methods:
+
+* `.render(self, data, **options)`
+* `.parse(self, stream)`
 
 ---
 
