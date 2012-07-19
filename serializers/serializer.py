@@ -295,7 +295,6 @@ class BaseSerializer(Field):
         self.parent = None
         self.root = None
         self.stack = []
-        self.options = opts
 
         # If one of our fields has 'is_root' set, pass through some of our args
         has_root_field = False

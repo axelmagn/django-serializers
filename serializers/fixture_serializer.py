@@ -24,7 +24,7 @@ class PrimaryKeyOrNaturalKeyRelatedField(PrimaryKeyRelatedField):
         super(PrimaryKeyOrNaturalKeyRelatedField, self).__init__(*args, **kwargs)
 
     def convert_field(self, obj, field_name):
-        if self.root.options.get('use_natural_keys', False):
+        if self.root.use_natural_keys:
             self.is_natural_key = True
             return self.nk_field.convert_field(obj, field_name)
         self.is_natural_key = False
@@ -88,3 +88,7 @@ class FixtureSerializer(ModelSerializer):
     def revert_class(self, data):
         # TODO: ValidationError (DeserializationError?) if this fails
         return models.get_model(*data['model'].split("."))
+
+    def serialize(self, *args, **kwargs):
+        self.use_natural_keys = kwargs.pop('use_natural_keys', False)
+        return super(FixtureSerializer, self).serialize(*args, **kwargs)
