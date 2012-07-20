@@ -11,6 +11,7 @@ from serializers.parsers import (
     JSONParser,
     DumpDataXMLParser
 )
+from serializers.utils import DictWithMetadata
 
 
 class PrimaryKeyOrNaturalKeyRelatedField(PrimaryKeyRelatedField):
@@ -51,7 +52,7 @@ class ModelNameField(Field):
 
 
 class FixtureFields(ModelSerializer):
-    _use_sorted_dict = False  # Ensure byte-for-byte backwards compatability
+    _dict_class = DictWithMetadata  # Unsorted dict to ensure byte-for-byte backwards compatability
 
     class Meta:
         model_field_types = ('local_fields', 'many_to_many')
@@ -67,7 +68,7 @@ class FixtureSerializer(ModelSerializer):
     """
     A serializer that is intended to produce dumpdata formatted structures.
     """
-    _use_sorted_dict = False  # Ensure byte-for-byte backwards compatability
+    _dict_class = DictWithMetadata  # Unsorted dict to ensure byte-for-byte backwards compatability
 
     pk = Field()
     model = ModelNameField()

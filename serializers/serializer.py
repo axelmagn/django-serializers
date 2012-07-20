@@ -15,11 +15,7 @@ from serializers.parsers import (
     JSONParser,
 )
 from serializers.fields import *
-from serializers.utils import (
-    DictWithMetadata,
-    SortedDictWithMetadata,
-    is_simple_callable
-)
+from serializers.utils import SortedDictWithMetadata, is_simple_callable
 from StringIO import StringIO
 from io import BytesIO
 
@@ -101,7 +97,7 @@ class BaseSerializer(Field):
         pass
 
     _options_class = SerializerOptions
-    _use_sorted_dict = True  # Set to False for backwards compatability with unsorted implementations.
+    _dict_class = SortedDictWithMetadata  # Set to False for backwards compatability with unsorted implementations.
     internal_use_only = False  # Backwards compatability
 
     def getvalue(self):
@@ -216,10 +212,7 @@ class BaseSerializer(Field):
             return field.convert_field(self.obj, self.field_name)
         self.stack.append(obj)
 
-        if self._use_sorted_dict:
-            ret = SortedDictWithMetadata()
-        else:
-            ret = DictWithMetadata()
+        ret = self._dict_class()
 
         fields = self.get_fields(obj, None, nested=self.opts.nested)
         for field_name, field in fields.items():
