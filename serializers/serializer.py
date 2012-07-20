@@ -62,7 +62,6 @@ def _get_option(name, kwargs, meta, default):
 
 class SerializerOptions(object):
     def __init__(self, meta, **kwargs):
-        self.format = getattr(meta, 'format', None)
         self.nested = getattr(meta, 'nested', False)
         self.fields = getattr(meta, 'fields', ())
         self.exclude = getattr(meta, 'exclude', ())
@@ -303,7 +302,6 @@ class BaseSerializer(Field):
                     setattr(self.opts, keyword, opts.pop(keyword))
 
         data = self.convert(obj)
-        format = format or self.opts.format
         if format:
             stream = opts.pop('stream', StringIO())
             self.render(data, stream, format, **opts)
@@ -323,7 +321,6 @@ class BaseSerializer(Field):
         """
         self.stack = []
 
-        format = format or self.opts.format
         if format:
             if isinstance(stream_or_string, basestring):
                 stream = BytesIO(stream_or_string)

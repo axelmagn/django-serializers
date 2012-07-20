@@ -19,6 +19,7 @@ class PrimaryKeyOrNaturalKeyRelatedField(PrimaryKeyRelatedField):
     Serializes to either pk or natural key, depending on if 'use_natural_keys'
     is specified when calling `serialize()`.
     """
+
     def __init__(self, *args, **kwargs):
         self.nk_field = NaturalKeyRelatedField()
         self.pk_field = PrimaryKeyRelatedField()
