@@ -176,18 +176,18 @@ class BaseSerializer(Field):
         else:
             self.opts.nested = parent.opts.nested
 
-    def convert_field(self, obj, field_name):
+    def field_to_native(self, obj, field_name):
         self.obj = obj
         self.field_name = field_name
 
         if self.opts.is_root:
-            return self.convert(obj)
-        return super(BaseSerializer, self).convert_field(obj, field_name)
+            return self.to_native(obj)
+        return super(BaseSerializer, self).field_to_native(obj, field_name)
 
-    def revert_field(self, data, field_name, into):
+    def field_from_native(self, data, field_name, into):
         self.data = data
 
-        field_data = self.revert(data.get(field_name))
+        field_data = self.from_native(data.get(field_name))
         if self.opts.is_root:
             into.update(field_data)
         else:
@@ -208,7 +208,7 @@ class BaseSerializer(Field):
         if obj in self.stack and not self.opts.is_root:
             fields = self.get_fields(self.obj, None, nested=False)
             field = fields[self.field_name]
-            return field.convert_field(self.obj, self.field_name)
+            return field.field_to_native(self.obj, self.field_name)
         self.stack.append(obj)
 
         ret = self._dict_class()
@@ -216,7 +216,7 @@ class BaseSerializer(Field):
         fields = self.get_fields(obj, None, nested=self.opts.nested)
         for field_name, field in fields.items():
             key = self.convert_field_key(obj, field_name, field)
-            value = field.convert_field(obj, field_name)
+            value = field.field_to_native(obj, field_name)
             ret.set_with_metadata(key, value, field)
         return ret
 
@@ -224,7 +224,7 @@ class BaseSerializer(Field):
         fields = self.get_fields(None, cls, nested=self.opts.nested)
         reverted_data = {}
         for field_name, field in fields.items():
-            field.revert_field(data, field_name, reverted_data)
+            field.field_from_native(data, field_name, reverted_data)
         return reverted_data
 
     def revert_class(self, data):
@@ -232,39 +232,39 @@ class BaseSerializer(Field):
             return self.parent.revert_class(self.data)
         return None
 
-    def revert_object(self, object_attrs, object_cls):
-        if object_cls is None:
-            return object_attrs
-        else:
-            return object_cls(**object_attrs)
+    def create_object(self, cls, attrs):
+        """
+        Deserialize a set of attributes into an object instance.
+        """
+        return attrs
 
-    def convert(self, obj):
+    def to_native(self, obj):
         """
         First stage of serialization.  Objects -> Primatives.
         """
         if _is_protected_type(obj):
             return obj
         elif is_simple_callable(obj):
-            return self.convert(obj())
+            return self.to_native(obj())
         elif isinstance(obj, dict):
-            return dict([(key, self.convert(val))
+            return dict([(key, self.to_native(val))
                          for (key, val) in obj.items()])
         elif hasattr(obj, '__iter__'):
-            return (self.convert(item) for item in obj)
+            return (self.to_native(item) for item in obj)
         return self.convert_object(obj)
 
-    def revert(self, data):
+    def from_native(self, data):
         """
         Reverse first stage of serialization.  Primatives -> Objects.
         """
         if _is_protected_type(data):
             return data
         elif hasattr(data, '__iter__') and not isinstance(data, dict):
-            return (self.revert(item) for item in data)
+            return (self.from_native(item) for item in data)
         else:
-            object_cls = self.revert_class(data)
-            object_attrs = self.revert_fields(data, object_cls)
-            return self.revert_object(object_attrs, object_cls)
+            cls = self.revert_class(data)
+            attrs = self.revert_fields(data, cls)
+            return self.create_object(cls, attrs)
 
     def render(self, data, stream, format, **opts):
         """
@@ -301,7 +301,7 @@ class BaseSerializer(Field):
                 if keyword in opts:
                     setattr(self.opts, keyword, opts.pop(keyword))
 
-        data = self.convert(obj)
+        data = self.to_native(obj)
         if format != 'python':
             stream = opts.pop('stream', StringIO())
             self.render(data, stream, format, **opts)
@@ -329,7 +329,7 @@ class BaseSerializer(Field):
             data = self.parse(stream, format)
         else:
             data = stream_or_string
-        return self.revert(data)
+        return self.from_native(data)
 
 
 class Serializer(BaseSerializer):
@@ -427,23 +427,24 @@ class ModelSerializer(Serializer):
         """
         return Field()
 
-    def convert_field(self, obj, field_name):
+    def field_to_native(self, obj, field_name):
         if self.opts.is_root:
-            return self.convert(obj)
+            return self.to_native(obj)
 
         obj = getattr(obj, field_name)
         if obj.__class__.__name__ in ('RelatedManager', 'ManyRelatedManager'):
-            return [self.convert(item) for item in obj.all()]
-        return self.convert(obj)
+            return [self.to_native(item) for item in obj.all()]
+        return self.to_native(obj)
 
     def revert_class(self, data):
         if self.opts.is_root:
             return self.parent.revert_class(self.data)
         return self.opts.model
 
-    def revert_object(self, object_attrs, object_cls):
+    def create_object(self, cls, attrs):
         m2m_data = {}
-        for field in object_cls._meta.many_to_many:
-            if field.name in object_attrs:
-                m2m_data[field.name] = object_attrs.pop(field.name)
-        return DeserializedObject(object_cls(**object_attrs), m2m_data)
+        for field in cls._meta.many_to_many:
+            # TODO: What if a field is renamed?
+            if field.name in attrs:
+                m2m_data[field.name] = attrs.pop(field.name)
+        return DeserializedObject(cls(**attrs), m2m_data)

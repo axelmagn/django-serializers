@@ -23,7 +23,7 @@ class Field(object):
 
     def initialise(self, parent, model_field=None):
         """
-        Called to set up a field prior to revert_field or convert_field.
+        Called to set up a field prior to field_to_native or field_from_native.
 
         parent - The parent serializer.
         model_field - The model field this field corrosponds to, if one exists.
@@ -33,16 +33,16 @@ class Field(object):
         if model_field:
             self.field = model_field
 
-    def revert_field(self, data, field_name, into):
+    def field_from_native(self, data, field_name, into):
         """
         Given a dictionary and a field name, updates the dictionary `into`,
         with the field and it's deserialized value.
         """
         if not field_name in data:
             return
-        into[field_name] = self.revert(data.get(field_name))
+        into[field_name] = self.from_native(data.get(field_name))
 
-    def revert(self, value):
+    def from_native(self, value):
         """
         Reverts a simple representation back to the field's value.
         """
@@ -53,17 +53,17 @@ class Field(object):
                 return self.field.to_python(value)
         return value
 
-    def convert_field(self, obj, field_name):
+    def field_to_native(self, obj, field_name):
         """
         Given and object and a field name, returns the value that should be
         serialized for that field.
         """
         self.obj = obj  # Need to hang onto this in the case of model fields
         if hasattr(self, 'field'):
-            return self.convert(self.field._get_val_from_obj(obj))
-        return self.convert(getattr(obj, field_name))
+            return self.to_native(self.field._get_val_from_obj(obj))
+        return self.to_native(getattr(obj, field_name))
 
-    def convert(self, value):
+    def to_native(self, value):
         """
         Converts the field's value into it's simple representation.
         """
@@ -96,11 +96,11 @@ class RelatedField(Field):
     serializing related objects.
     """
 
-    def convert_field(self, obj, field_name):
+    def field_to_native(self, obj, field_name):
         obj = getattr(obj, field_name)
         if obj.__class__.__name__ in ('RelatedManager', 'ManyRelatedManager'):
-            return [self.convert(item) for item in obj.all()]
-        return self.convert(obj)
+            return [self.to_native(item) for item in obj.all()]
+        return self.to_native(obj)
 
     def attributes(self):
         try:
@@ -124,14 +124,14 @@ class PrimaryKeyRelatedField(RelatedField):
     # An alternative implementation would simply be this...
     #
     # class PrimaryKeyRelatedField(RelatedField):
-    #     def convert(self, obj):
+    #     def to_native(self, obj):
     #         return obj.pk
 
     error_messages = {
         'invalid': _(u"'%s' value must be an integer."),
     }
 
-    def convert(self, pk):
+    def to_native(self, pk):
         """
         Simply returns the object's pk.  You can subclass this method to
         provide different serialization behavior of the pk.
@@ -139,27 +139,27 @@ class PrimaryKeyRelatedField(RelatedField):
         """
         return pk
 
-    def convert_field(self, obj, field_name):
+    def field_to_native(self, obj, field_name):
         try:
             obj = obj.serializable_value(field_name)
         except AttributeError:
             field = obj._meta.get_field_by_name(field_name)[0]
             obj = getattr(obj, field_name)
             if obj.__class__.__name__ == 'RelatedManager':
-                return [self.convert(item.pk) for item in obj.all()]
+                return [self.to_native(item.pk) for item in obj.all()]
             elif isinstance(field, RelatedObject):
-                return self.convert(obj.pk)
+                return self.to_native(obj.pk)
             raise
         if obj.__class__.__name__ == 'ManyRelatedManager':
-            return [self.convert(item.pk) for item in obj.all()]
-        return self.convert(obj)
+            return [self.to_native(item.pk) for item in obj.all()]
+        return self.to_native(obj)
 
-    def revert_field(self, data, field_name, into):
+    def field_from_native(self, data, field_name, into):
         value = data.get(field_name)
         if hasattr(value, '__iter__'):
-            into[field_name] = [self.revert(item) for item in value]
+            into[field_name] = [self.from_native(item) for item in value]
         else:
-            into[field_name + '_id'] = self.revert(value)
+            into[field_name + '_id'] = self.from_native(value)
 
 
 class NaturalKeyRelatedField(RelatedField):
@@ -168,16 +168,16 @@ class NaturalKeyRelatedField(RelatedField):
     """
     is_natural_key = True  # XML renderer handles these differently
 
-    def convert(self, obj):
+    def to_native(self, obj):
         if hasattr(obj, 'natural_key'):
             return obj.natural_key()
         return obj
 
-    def revert_field(self, data, field_name, into):
+    def field_from_native(self, data, field_name, into):
         value = data.get(field_name)
-        into[self.field.attname] = self.revert(value)
+        into[self.field.attname] = self.from_native(value)
 
-    def revert(self, value):
+    def from_native(self, value):
         # TODO: Support 'using' : db = options.pop('using', DEFAULT_DB_ALIAS)
         manager = self.field.rel.to._default_manager
         manager = manager.db_manager(DEFAULT_DB_ALIAS)
@@ -189,7 +189,7 @@ class BooleanField(Field):
         'invalid': _(u"'%s' value must be either True or False."),
     }
 
-    def revert(self, value):
+    def from_native(self, value):
         if value in (True, False):
             # if value is 1 or 0 than it's equal to True or False, but we want
             # to return a true bool for semantic reasons.
@@ -202,7 +202,7 @@ class BooleanField(Field):
 
 
 class CharField(Field):
-    def revert(self, value):
+    def from_native(self, value):
         if isinstance(value, basestring) or value is None:
             return value
         return smart_unicode(value)
@@ -216,7 +216,7 @@ class DateField(Field):
                           u"but it is an invalid date."),
     }
 
-    def revert(self, value):
+    def from_native(self, value):
         if value is None:
             return value
         if isinstance(value, datetime.datetime):
@@ -252,7 +252,7 @@ class DateTimeField(Field):
                               u"but it is an invalid date/time."),
     }
 
-    def revert(self, value):
+    def from_native(self, value):
         if value is None:
             return value
         if isinstance(value, datetime.datetime):
@@ -296,7 +296,7 @@ class IntegerField(Field):
         'invalid': _(u"'%s' value must be an integer."),
     }
 
-    def revert(self, value):
+    def from_native(self, value):
         if value in validators.EMPTY_VALUES:
             return None
         try:
@@ -311,7 +311,7 @@ class FloatField(Field):
         'invalid': _("'%s' value must be a float."),
     }
 
-    def revert(self, value):
+    def from_native(self, value):
         if value is None:
             return value
         try:

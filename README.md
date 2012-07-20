@@ -65,9 +65,9 @@ We'll declare a serializer that we can use to serialize and deserialize `Comment
 Declaring a serializer looks very similar to declaring a form:
 
     class CommentSerializer(Serializer):
-        title = CharField(blank=True)
+        title = CharField()
         content = CharField()
-        created = DateTimeField(field_name='created time')
+        created = DateTimeField(label='created time')
 
 We can now use `CommentSerializer` to serialize a comment, or list of comments, into `json`, `yaml`, `xml` or `csv` formats:
 
@@ -94,11 +94,11 @@ That's because the `CommentSerializer` doesn't yet have any way of determining w
 We can explicitly control how the deserialized objects are instantiated by defining the `revert_object` method:
 
     class CommentSerializer(Serializer):
-        title = CharField(blank=True)
+        title = CharField()
         content = CharField()
-        created = DateTimeField()
+        created = DateTimeField(label='created time')
        
-        def revert_object(cls, attrs):
+        def revert_object(self, cls, attrs):
             return Comment(**attrs)
 
 Declaring the `revert_object` method is optional, and may not be required if you don't need to support deserialization.
@@ -131,9 +131,9 @@ The `Serializer` class is itself a type of `Field`, and can be used to represent
         user = UserSerializer()
         title = CharField()
         content = CharField()
-        created = DateTimeField()
+        created = DateTimeField(label='created time')
         
-        def revert_object(cls, attrs):
+        def revert_object(self, cls, attrs):
             return Comment(**attrs)
 
 ## Creating custom fields
@@ -200,7 +200,7 @@ Typically the serializer classes will map closely to the model
 ## Specifying fields explicitly 
 
     class AccountSerializer(ModelSerializer):
-        get_absolute_url = Field(field_name='url', read_only=True)
+        get_absolute_url = Field(field_name='url')
         group = NaturalKeyField()
 
         class Meta:

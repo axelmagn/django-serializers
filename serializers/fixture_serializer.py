@@ -25,29 +25,29 @@ class PrimaryKeyOrNaturalKeyRelatedField(PrimaryKeyRelatedField):
         self.pk_field = PrimaryKeyRelatedField()
         super(PrimaryKeyOrNaturalKeyRelatedField, self).__init__(*args, **kwargs)
 
-    def convert_field(self, obj, field_name):
+    def field_to_native(self, obj, field_name):
         if self.root.use_natural_keys:
             self.is_natural_key = True
-            return self.nk_field.convert_field(obj, field_name)
+            return self.nk_field.field_to_native(obj, field_name)
         self.is_natural_key = False
-        return self.pk_field.convert_field(obj, field_name)
+        return self.pk_field.field_to_native(obj, field_name)
 
-    def revert_field(self, data, field_name, into):
+    def field_from_native(self, data, field_name, into):
         value = data.get(field_name)
         if hasattr(self.field.rel.to._default_manager, 'get_by_natural_key') and hasattr(value, '__iter__'):
             self.nk_field.field = self.field  # Total hack
-            return self.nk_field.revert_field(data, field_name, into)
-        return self.pk_field.revert_field(data, field_name, into)
+            return self.nk_field.field_from_native(data, field_name, into)
+        return self.pk_field.field_from_native(data, field_name, into)
 
 
 class ModelNameField(Field):
     """
     Serializes the model instance's model name.  Eg. 'auth.User'.
     """
-    def convert_field(self, obj, field_name):
+    def field_to_native(self, obj, field_name):
         return smart_unicode(obj._meta)
 
-    def revert_field(self, data, field_name, into):
+    def field_from_native(self, data, field_name, into):
         # We don't actually want to restore the model name metadata to a field.
         pass
 
@@ -61,8 +61,8 @@ class FixtureFields(ModelSerializer):
     def get_related_field(self, model_field):
         return PrimaryKeyOrNaturalKeyRelatedField()
 
-    def revert_object(self, object_attrs, object_cls):
-        return object_attrs
+    def create_object(self, cls, attrs):
+        return attrs
 
 
 class FixtureSerializer(ModelSerializer):
