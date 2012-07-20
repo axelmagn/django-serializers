@@ -3,11 +3,9 @@ from serializers import FixtureSerializer
 
 class Serializer(FixtureSerializer):
     def serialize(self, *args, **kwargs):
-        kwargs['format'] = 'json'
-        return super(Serializer, self).serialize(*args, **kwargs)
+        return super(Serializer, self).serialize('json', *args, **kwargs)
 
     def deserialize(self, *args, **kwargs):
-        kwargs['format'] = 'json'
-        return super(Serializer, self).deserialize(*args, **kwargs)
+        return super(Serializer, self).deserialize('json', *args, **kwargs)
 
 Deserializer = Serializer

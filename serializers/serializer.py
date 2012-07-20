@@ -280,7 +280,7 @@ class BaseSerializer(Field):
         parser = self.opts.parser_classes[format]()
         return parser.parse(stream)
 
-    def serialize(self, obj, format=None, **opts):
+    def serialize(self, format, obj, **opts):
         """
         Perform serialization of objects into bytestream.
         First converts the objects into primatives, then renders to bytestream.
@@ -302,7 +302,7 @@ class BaseSerializer(Field):
                     setattr(self.opts, keyword, opts.pop(keyword))
 
         data = self.convert(obj)
-        if format:
+        if format != 'python':
             stream = opts.pop('stream', StringIO())
             self.render(data, stream, format, **opts)
             if hasattr(stream, 'getvalue'):
@@ -313,7 +313,7 @@ class BaseSerializer(Field):
             self.value = data
         return self.value
 
-    def deserialize(self, stream_or_string, format=None):
+    def deserialize(self, format, stream_or_string):
         """
         Perform deserialization of bytestream into objects.
         First parses the bytestream into primative types,
@@ -321,7 +321,7 @@ class BaseSerializer(Field):
         """
         self.stack = []
 
-        if format:
+        if format != 'python':
             if isinstance(stream_or_string, basestring):
                 stream = BytesIO(stream_or_string)
             else:
