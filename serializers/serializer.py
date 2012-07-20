@@ -139,7 +139,7 @@ class BaseSerializer(Field):
             except:
                 model_field = None
             # Set up the field
-            field.initialise(parent=self, model_field=model_field)
+            field.initialize(parent=self, model_field=model_field)
 
         # Add in the default fields
         fields = self.default_fields(obj, cls, nested)
@@ -164,12 +164,12 @@ class BaseSerializer(Field):
     #####
     # Field methods - used when the serializer class is itself used as a field.
 
-    def initialise(self, parent, model_field=None):
+    def initialize(self, parent, model_field=None):
         """
         Same behaviour as usual Field, except that we need to keep track
         of state so that we can deal with handling maximum depth and recursion.
         """
-        super(BaseSerializer, self).initialise(parent, model_field)
+        super(BaseSerializer, self).initialize(parent, model_field)
         self.stack = parent.stack[:]
         if parent.opts.nested and not isinstance(parent.opts.nested, bool):
             self.opts.nested = parent.opts.nested - 1
@@ -351,7 +351,7 @@ class ObjectSerializer(Serializer):
                 field = self.__class__()
             else:
                 field = Field()
-            field.initialise(parent=self)
+            field.initialize(parent=self)
             ret[attr] = field
         return ret
 
@@ -405,7 +405,7 @@ class ModelSerializer(Serializer):
                     field = self.get_related_field(model_field)
             else:
                 field = self.get_field(model_field)
-            field.initialise(parent=self, model_field=model_field)
+            field.initialize(parent=self, model_field=model_field)
             ret[model_field.name] = field
         return ret
 

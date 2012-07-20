@@ -250,7 +250,7 @@ Out of the box `django-serializers` supports `json`, `yaml`, `xml` and `csv` for
 ## Renderers
 
 * Explain that input is native python datatypes.
-* Same as output of `.serialize('python')`
+* Same as output of `.serialize('python', objects)`
 * Give HTML table example
 
 ## Parsers
@@ -293,12 +293,15 @@ Classes:
 Methods:
 
 * `.__init__(self, ...)`
-* `.initialize(self, parent)`
+* `.initialize(self, parent, model_field)`
 * `.to_native(self, value)`
 * `.from_native(self, value)`
 * `.field_to_native(self, obj, attr)`
 * `.field_from_native(self, data, field_name, into)`
 * `.attributes(self)`
+
+**TODO: Factor model_field out of initialize**
+**TODO: Field options: read_only, blank, etc…***
 
 Attributes:
 

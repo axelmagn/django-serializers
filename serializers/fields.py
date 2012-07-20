@@ -21,7 +21,7 @@ class Field(object):
         self.creation_counter = Field.creation_counter
         Field.creation_counter += 1
 
-    def initialise(self, parent, model_field=None):
+    def initialize(self, parent, model_field=None):
         """
         Called to set up a field prior to field_to_native or field_from_native.
 
@@ -31,7 +31,7 @@ class Field(object):
         self.parent = parent
         self.root = parent.root or parent
         if model_field:
-            self.field = model_field
+            self.model_field = model_field
 
     def field_from_native(self, data, field_name, into):
         """
@@ -46,11 +46,11 @@ class Field(object):
         """
         Reverts a simple representation back to the field's value.
         """
-        if hasattr(self, 'field'):
+        if hasattr(self, 'model_field'):
             try:
-                return self.field.rel.to._meta.get_field(self.field.rel.field_name).to_python(value)
+                return self.model_field.rel.to._meta.get_field(self.model_field.rel.field_name).to_python(value)
             except:
-                return self.field.to_python(value)
+                return self.model_field.to_python(value)
         return value
 
     def field_to_native(self, obj, field_name):
@@ -59,8 +59,8 @@ class Field(object):
         serialized for that field.
         """
         self.obj = obj  # Need to hang onto this in the case of model fields
-        if hasattr(self, 'field'):
-            return self.to_native(self.field._get_val_from_obj(obj))
+        if hasattr(self, 'model_field'):
+            return self.to_native(self.model_field._get_val_from_obj(obj))
         return self.to_native(getattr(obj, field_name))
 
     def to_native(self, value):
@@ -72,8 +72,8 @@ class Field(object):
 
         if is_protected_type(value):
             return value
-        elif hasattr(self, 'field'):
-            return self.field.value_to_string(self.obj)
+        elif hasattr(self, 'model_field'):
+            return self.model_field.value_to_string(self.obj)
         return smart_unicode(value)
 
     def attributes(self):
@@ -82,7 +82,7 @@ class Field(object):
         """
         try:
             return {
-                "type": self.field.get_internal_type()
+                "type": self.model_field.get_internal_type()
             }
         except AttributeError:
             return {}
@@ -105,8 +105,8 @@ class RelatedField(Field):
     def attributes(self):
         try:
             return {
-                "rel": self.field.rel.__class__.__name__,
-                "to": smart_unicode(self.field.rel.to._meta)
+                "rel": self.model_field.rel.__class__.__name__,
+                "to": smart_unicode(self.model_field.rel.to._meta)
             }
         except AttributeError:
             return {}
@@ -175,11 +175,11 @@ class NaturalKeyRelatedField(RelatedField):
 
     def field_from_native(self, data, field_name, into):
         value = data.get(field_name)
-        into[self.field.attname] = self.from_native(value)
+        into[self.model_field.attname] = self.from_native(value)
 
     def from_native(self, value):
         # TODO: Support 'using' : db = options.pop('using', DEFAULT_DB_ALIAS)
-        manager = self.field.rel.to._default_manager
+        manager = self.model_field.rel.to._default_manager
         manager = manager.db_manager(DEFAULT_DB_ALIAS)
         return manager.get_by_natural_key(*value).pk
 

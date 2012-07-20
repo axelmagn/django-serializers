@@ -34,8 +34,8 @@ class PrimaryKeyOrNaturalKeyRelatedField(PrimaryKeyRelatedField):
 
     def field_from_native(self, data, field_name, into):
         value = data.get(field_name)
-        if hasattr(self.field.rel.to._default_manager, 'get_by_natural_key') and hasattr(value, '__iter__'):
-            self.nk_field.field = self.field  # Total hack
+        if hasattr(self.model_field.rel.to._default_manager, 'get_by_natural_key') and hasattr(value, '__iter__'):
+            self.nk_field.model_field = self.model_field  # Total hack
             return self.nk_field.field_from_native(data, field_name, into)
         return self.pk_field.field_from_native(data, field_name, into)
 
