@@ -74,11 +74,10 @@ class FixtureFields(Serializer):
 
         ret = SortedDict()
         for model_field in fields:
-            if model_field.rel:
-                if nested:
-                    field = FixtureSerializer()
-                else:
-                    field = PrimaryKeyOrNaturalKeyRelatedField()
+            if model_field.rel and nested:
+                field = FixtureSerializer()
+            elif model_field.rel:
+                field = PrimaryKeyOrNaturalKeyRelatedField()
             else:
                 field = Field()
             field.initialize(parent=self, model_field=model_field)

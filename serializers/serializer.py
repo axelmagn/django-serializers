@@ -382,11 +382,10 @@ class ModelSerializer(Serializer):
 
         ret = SortedDict()
         for model_field in fields:
-            if model_field.rel:
-                if nested:
-                    field = self.get_nested_field(model_field)
-                else:
-                    field = self.get_related_field(model_field)
+            if model_field.rel and nested:
+                field = self.get_nested_field(model_field)
+            elif model_field.rel:
+                field = self.get_related_field(model_field)
             else:
                 field = self.get_field(model_field)
             field.initialize(parent=self, model_field=model_field)
