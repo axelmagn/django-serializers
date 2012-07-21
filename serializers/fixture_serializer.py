@@ -1,7 +1,8 @@
 from django.db import models
+from django.utils.datastructures import SortedDict
 from django.utils.encoding import smart_unicode
 from serializers import Field, PrimaryKeyRelatedField, NaturalKeyRelatedField
-from serializers import ModelSerializer
+from serializers import Serializer, ModelSerializer
 from serializers.renderers import (
     JSONRenderer,
     YAMLRenderer,
@@ -52,17 +53,37 @@ class ModelNameField(Field):
         pass
 
 
-class FixtureFields(ModelSerializer):
+class FixtureFields(Serializer):
     _dict_class = DictWithMetadata  # Unsorted dict to ensure byte-for-byte backwards compatability
 
     class Meta:
         model_field_types = ('local_fields', 'many_to_many')
 
-    def get_related_field(self, model_field):
-        return PrimaryKeyOrNaturalKeyRelatedField()
+    def default_fields(self, obj, cls, nested):
+        """
+        Return the set of all fields defined on the model.
+        """
+        if obj is not None:
+            cls = obj.__class__
 
-    def create_object(self, cls, attrs):
-        return attrs
+        # all local fields + all m2m fields without through relationship
+        opts = cls._meta.concrete_model._meta
+        fields = [field for field in opts.local_fields if field.serialize]
+        fields += [field for field in opts.many_to_many
+                   if field.serialize and field.rel.through._meta.auto_created]
+
+        ret = SortedDict()
+        for model_field in fields:
+            if model_field.rel:
+                if nested:
+                    field = FixtureSerializer()
+                else:
+                    field = PrimaryKeyOrNaturalKeyRelatedField()
+            else:
+                field = Field()
+            field.initialize(parent=self, model_field=model_field)
+            ret[model_field.name] = field
+        return ret
 
 
 class FixtureSerializer(ModelSerializer):

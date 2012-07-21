@@ -81,7 +81,6 @@ class SerializerOptions(object):
 class ModelSerializerOptions(SerializerOptions):
     def __init__(self, meta, **kwargs):
         super(ModelSerializerOptions, self).__init__(meta, **kwargs)
-        self.model_field_types = getattr(meta, 'model_field_types', ('pk', 'fields', 'many_to_many'))
         self.model = _get_option('model', kwargs, meta, None)
 
 
@@ -368,41 +367,22 @@ class ModelSerializer(Serializer):
 
     def default_fields(self, obj, cls, nested):
         """
-        Return the set of all fields defined on the model.
+        Return all the fields that should be serialized for the model.
         """
-        fields = []
         if obj is not None:
             cls = obj.__class__
-        concrete_model = cls._meta.concrete_model
-        for field_type in self.opts.model_field_types:
-            if field_type == 'pk':
-                # Add pk field, descending into inherited pk if needed
-                field = concrete_model._meta.pk
-                while field.rel:
-                    field = field.rel.to._meta.pk
-                fields.append(field)
 
-            elif field_type == 'many_to_many':
-                # We're explicitly dropping 'through' m2m relations here
-                # for the sake of dumpdata compatability.
-                # Need to think about what we actually want to do.
-                fields.extend([
-                    field for field in
-                    getattr(concrete_model._meta, field_type)
-                    if field.serialize and field.rel.through._meta.auto_created
-                ])
-
-            else:
-                # Add any non-pk field types
-                fields.extend([
-                    field for field in
-                    getattr(concrete_model._meta, field_type)
-                    if field.serialize
-                ])
+        opts = cls._meta.concrete_model._meta
+        pk_field = opts.pk
+        while pk_field.rel:
+            pk_field = pk_field.rel.to._meta.pk
+        fields = [pk_field]
+        fields += [field for field in opts.fields if field.serialize]
+        fields += [field for field in opts.many_to_many if field.serialize]
 
         ret = SortedDict()
         for model_field in fields:
-            if isinstance(model_field, RelatedObject) or model_field.rel:
+            if model_field.rel:
                 if nested:
                     field = self.get_nested_field(model_field)
                 else:
@@ -417,7 +397,7 @@ class ModelSerializer(Serializer):
         """
         Creates a default instance of a nested relational field.
         """
-        return self.__class__()
+        return ModelSerializer()
 
     def get_related_field(self, model_field):
         """
