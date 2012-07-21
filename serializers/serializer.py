@@ -100,7 +100,7 @@ class BaseSerializer(Field):
     internal_use_only = False  # Backwards compatability
 
     def getvalue(self):
-        return self.value  # Backwards compatability with deserialization API.
+        return self.value  # Backwards compatability with serialization API.
 
     def __init__(self, label=None, **kwargs):
         super(BaseSerializer, self).__init__(label=label)
@@ -204,12 +204,16 @@ class BaseSerializer(Field):
             return field.label
         return field_name
 
-    def convert_object(self, obj):
+    def determine_recursion(self, obj):
         if obj in self.stack and not self.opts.is_root:
+            return True
+        self.stack.append(obj)
+
+    def convert_object(self, obj):
+        if self.determine_recursion(obj):
             fields = self.get_fields(self.obj, None, nested=False)
             field = fields[self.field_name]
             return field.field_to_native(self.obj, self.field_name)
-        self.stack.append(obj)
 
         ret = self._dict_class()
 
@@ -444,7 +448,6 @@ class ModelSerializer(Serializer):
     def create_object(self, cls, attrs):
         m2m_data = {}
         for field in cls._meta.many_to_many:
-            # TODO: What if a field is renamed?
             if field.name in attrs:
                 m2m_data[field.name] = attrs.pop(field.name)
         return DeserializedObject(cls(**attrs), m2m_data)

@@ -300,15 +300,16 @@ Methods:
 * `.field_from_native(self, data, field_name, into)`
 * `.attributes(self)`
 
-**TODO: Factor model_field out of initialize**
-**TODO: Field options: read_only, blank, etc…***
-
 Attributes:
 
 * `.root`
 * `.parent`
 * `.context`
 * `.model_field`
+
+**TODO: Factor `model_field` out of initialize.**
+
+**TODO: Field options: `read_only`, `blank`, etc…**
 
 ## Relational field types
 
