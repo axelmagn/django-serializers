@@ -359,7 +359,7 @@ class ObjectSerializer(Serializer):
         return ret
 
 
-class ModelSerializer(Serializer):
+class ModelSerializer(RelatedField, Serializer):
     """
     A serializer that deals with model instances and querysets.
     """
@@ -409,15 +409,6 @@ class ModelSerializer(Serializer):
         Creates a default instance of a basic field.
         """
         return Field()
-
-    def field_to_native(self, obj, field_name):
-        if self.opts.is_root:
-            return self.to_native(obj)
-
-        obj = getattr(obj, field_name)
-        if obj.__class__.__name__ in ('RelatedManager', 'ManyRelatedManager'):
-            return [self.to_native(item) for item in obj.all()]
-        return self.to_native(obj)
 
     def revert_class(self, data):
         if self.opts.is_root:

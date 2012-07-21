@@ -56,9 +56,6 @@ class ModelNameField(Field):
 class FixtureFields(Serializer):
     _dict_class = DictWithMetadata  # Unsorted dict to ensure byte-for-byte backwards compatability
 
-    class Meta:
-        model_field_types = ('local_fields', 'many_to_many')
-
     def default_fields(self, obj, cls, nested):
         """
         Return the set of all fields defined on the model.
