@@ -1,3 +1,4 @@
+from django.core.serializers.base import DeserializedObject
 from django.db import models
 from django.utils.datastructures import SortedDict
 from django.utils.encoding import smart_unicode
@@ -56,12 +57,14 @@ class ModelNameField(Field):
 class FixtureFields(Serializer):
     _dict_class = DictWithMetadata  # Unsorted dict to ensure byte-for-byte backwards compatability
 
-    def default_fields(self, obj, cls, nested):
+    def default_fields(self, obj, data, nested):
         """
         Return the set of all fields defined on the model.
         """
         if obj is not None:
             cls = obj.__class__
+        else:
+            cls = self.parent.model
 
         # all local fields + all m2m fields without through relationship
         opts = cls._meta.concrete_model._meta
@@ -82,7 +85,7 @@ class FixtureFields(Serializer):
         return ret
 
 
-class FixtureSerializer(ModelSerializer):
+class FixtureSerializer(Serializer):
     """
     A serializer that is intended to produce dumpdata formatted structures.
     """
@@ -103,13 +106,17 @@ class FixtureSerializer(ModelSerializer):
             'json': JSONParser
         }
 
-    def default_fields(self, obj, cls, nested):
-        return {}
-
-    def revert_class(self, data):
-        # TODO: ValidationError (DeserializationError?) if this fails
-        return models.get_model(*data['model'].split("."))
+    def revert_fields(self, data):
+        self.model = models.get_model(*data['model'].split("."))
+        return super(FixtureSerializer, self).revert_fields(data)
 
     def serialize(self, *args, **kwargs):
         self.use_natural_keys = kwargs.pop('use_natural_keys', False)
         return super(FixtureSerializer, self).serialize(*args, **kwargs)
+
+    def create_object(self, attrs):
+        m2m_data = {}
+        for field in self.model._meta.many_to_many:
+            if field.name in attrs:
+                m2m_data[field.name] = attrs.pop(field.name)
+        return DeserializedObject(self.model(**attrs), m2m_data)

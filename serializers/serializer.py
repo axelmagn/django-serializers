@@ -111,13 +111,13 @@ class BaseSerializer(Field):
     #####
     # Methods to determine which fields to use when (de)serializing objects.
 
-    def default_fields(self, obj, cls, nested):
+    def default_fields(self, obj, data, nested):
         """
         Return the complete set of default fields for the object, as a dict.
         """
         return {}
 
-    def get_fields(self, obj, cls, nested):
+    def get_fields(self, obj, data, nested):
         """
         Returns the complete set of fields for the object, as a dict.
 
@@ -141,7 +141,7 @@ class BaseSerializer(Field):
             field.initialize(parent=self, model_field=model_field)
 
         # Add in the default fields
-        fields = self.default_fields(obj, cls, nested)
+        fields = self.default_fields(obj, data, nested)
         for key, val in fields.items():
             if key not in ret:
                 ret[key] = val
@@ -223,19 +223,14 @@ class BaseSerializer(Field):
             ret.set_with_metadata(key, value, field)
         return ret
 
-    def revert_fields(self, data, cls):
-        fields = self.get_fields(None, cls, nested=self.opts.nested)
+    def revert_fields(self, data):
+        fields = self.get_fields(None, data, nested=self.opts.nested)
         reverted_data = {}
         for field_name, field in fields.items():
             field.field_from_native(data, field_name, reverted_data)
         return reverted_data
 
-    def revert_class(self, data):
-        if self.opts.is_root:
-            return self.parent.revert_class(self.data)
-        return None
-
-    def create_object(self, cls, attrs):
+    def create_object(self, attrs):
         """
         Deserialize a set of attributes into an object instance.
         """
@@ -265,9 +260,8 @@ class BaseSerializer(Field):
         elif hasattr(data, '__iter__') and not isinstance(data, dict):
             return (self.from_native(item) for item in data)
         else:
-            cls = self.revert_class(data)
-            attrs = self.revert_fields(data, cls)
-            return self.create_object(cls, attrs)
+            attrs = self.revert_fields(data)
+            return self.create_object(attrs)
 
     def render(self, data, stream, format, **opts):
         """
@@ -365,12 +359,14 @@ class ModelSerializer(RelatedField, Serializer):
     """
     _options_class = ModelSerializerOptions
 
-    def default_fields(self, obj, cls, nested):
+    def default_fields(self, obj, data, nested):
         """
         Return all the fields that should be serialized for the model.
         """
         if obj is not None:
             cls = obj.__class__
+        else:
+            cls = self.opts.model
 
         opts = cls._meta.concrete_model._meta
         pk_field = opts.pk
@@ -410,14 +406,12 @@ class ModelSerializer(RelatedField, Serializer):
         """
         return Field()
 
-    def revert_class(self, data):
-        if self.opts.is_root:
-            return self.parent.revert_class(self.data)
-        return self.opts.model
-
-    def create_object(self, cls, attrs):
+    def create_object(self, attrs):
+        """
+        Restore the model instance.
+        """
         m2m_data = {}
-        for field in cls._meta.many_to_many:
+        for field in self.opts.model._meta.many_to_many:
             if field.name in attrs:
                 m2m_data[field.name] = attrs.pop(field.name)
-        return DeserializedObject(cls(**attrs), m2m_data)
+        return DeserializedObject(self.opts.model(**attrs), m2m_data)
