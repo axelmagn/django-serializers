@@ -184,8 +184,6 @@ class BaseSerializer(Field):
         return super(BaseSerializer, self).field_to_native(obj, field_name)
 
     def field_from_native(self, data, field_name, into):
-        self.data = data
-
         field_data = self.from_native(data.get(field_name))
         if self.opts.is_root:
             into.update(field_data)
@@ -284,19 +282,9 @@ class BaseSerializer(Field):
         """
         self.stack = []
 
-        # If one of our fields has 'is_root' set, pass through some of our args
-        has_root_field = False
-        for key, field in self.fields.items():
-            if hasattr(field, 'opts') and getattr(field.opts, 'is_root', None):
-                has_root_field = True
-                for keyword in ('fields', 'exclude', 'nested'):
-                    if keyword in opts:
-                        setattr(field.opts, keyword, opts.pop(keyword))
-
-        if not has_root_field:
-            for keyword in ('fields', 'exclude', 'nested'):
-                if keyword in opts:
-                    setattr(self.opts, keyword, opts.pop(keyword))
+        for keyword in ('fields', 'exclude', 'nested'):
+            if keyword in opts:
+                setattr(self.opts, keyword, opts.pop(keyword))
 
         data = self.to_native(obj)
         if format != 'python':

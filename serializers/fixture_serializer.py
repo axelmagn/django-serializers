@@ -112,9 +112,20 @@ class FixtureSerializer(Serializer):
 
     def serialize(self, *args, **kwargs):
         self.use_natural_keys = kwargs.pop('use_natural_keys', False)
+
+        fields = kwargs.pop('fields', None)
+        exclude = kwargs.pop('exclude', None)
+        if fields is not None:
+            self.fields['fields'].opts.fields = fields
+        if exclude is not None:
+            self.fields['fields'].opts.exclude = exclude
+
         return super(FixtureSerializer, self).serialize(*args, **kwargs)
 
     def create_object(self, attrs):
+        """
+        Restore the model instance.
+        """
         m2m_data = {}
         for field in self.model._meta.many_to_many:
             if field.name in attrs:
