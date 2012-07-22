@@ -499,7 +499,7 @@ class RecursiveSerializationTests(SerializationTestCase):
         emily.father = john
         self.obj = john
 
-    def test_recursiive_serialization(self):
+    def test_recursive_serialization(self):
         """
         If recursion occurs, serializer will fall back to flat values.
         """

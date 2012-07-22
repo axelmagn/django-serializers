@@ -20,6 +20,10 @@ from StringIO import StringIO
 from io import BytesIO
 
 
+class RecursionOccured(BaseException):
+    pass
+
+
 def _is_protected_type(obj):
     """
     True if the object is a native datatype that does not need to
@@ -176,9 +180,6 @@ class BaseSerializer(Field):
             self.opts.nested = parent.opts.nested
 
     def field_to_native(self, obj, field_name):
-        self.obj = obj
-        self.field_name = field_name
-
         if self.opts.is_root:
             return self.to_native(obj)
         return super(BaseSerializer, self).field_to_native(obj, field_name)
@@ -201,23 +202,21 @@ class BaseSerializer(Field):
             return field.label
         return field_name
 
-    def determine_recursion(self, obj):
-        if obj in self.stack and not self.opts.is_root:
-            return True
-        self.stack.append(obj)
-
     def convert_object(self, obj):
-        if self.determine_recursion(obj):
-            fields = self.get_fields(self.obj, None, nested=False)
-            field = fields[self.field_name]
-            return field.field_to_native(self.obj, self.field_name)
+        if obj in self.stack and not self.opts.is_root:
+            raise RecursionOccured()
+        self.stack.append(obj)
 
         ret = self._dict_class()
 
         fields = self.get_fields(obj, None, nested=self.opts.nested)
         for field_name, field in fields.items():
             key = self.convert_field_key(obj, field_name, field)
-            value = field.field_to_native(obj, field_name)
+            try:
+                value = field.field_to_native(obj, field_name)
+            except RecursionOccured:
+                field = self.get_fields(obj, None, nested=False)[field_name]
+                value = field.field_to_native(obj, field_name)
             ret.set_with_metadata(key, value, field)
         return ret
 
