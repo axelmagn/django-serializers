@@ -194,36 +194,65 @@ The `ModelSerializer` class lets you automatically create a Serializer class wit
         class Meta:
             model = Account
 
+**[TODO: Explain model field to serializer field mapping in more detail]**
+
 ## Specifying fields explicitly 
 
+You can add extra fields to a `ModelSerializer`, or override the default fields, by declaring fields on the class, just as you would for a `Serializer` class.
+
     class AccountSerializer(ModelSerializer):
-        url = Field(source='get_absolute_url', readonly=True)
+        url = CharField(source='get_absolute_url', readonly=True)
         group = NaturalKeyField()
 
         class Meta:
             model = Account
 
-* Mention properties.
-* May be callables
+Extra fields can corrospond to any property or callable on the model.
 
 ## Relational fields
 
-* Can be used for relationships & reverse relationships
-* PrimaryKeyField, NaturalKeyField
-* Sublclassing RelatedField.
+When serializing model instances, there are a number of different ways you might choose to represent relationships.  The default representation is to use the primary keys of the related instances.
+
+Alternative representations include serializing using natural keys, serializing complete nested representations, or serializing using a custom representation, such as a URL that uniquely identifies the model instances.
+
+The `PrimaryKeyField` and `NaturalKeyField` fields provide alternative flat representations.
+
+The `ModelSerializer` class can itself be used as a field, in order to serialize relationships using nested representations.
+
+The `RelatedField` class may be subclassed to create a custom represenation of a relationship.  The subclass should override `.to_native()`, and optionally `.from_native()` if deserialization is supported.
+
+All the relational fields may be used for any relationship or reverse relationship on a model.
 
 ## Specifying which fields should be included
 
-* fields
-* exclude
-* May also be set in `serialize()`
+If you only want a subset of the default fields to be used in a model serializer, you can do so using `fields` or `exclude` options, just as you would with a `ModelForm`.
+
+For example:
+
+    class AccountSerializer(ModelSerializer):
+        class Meta:
+            model = Account
+            exclude = ('id',)
+
+The `fields` and `exclude` options may also be set by passing them to the `serialize()` method.
 
 **[TODO: Possibly only allow .serialize(fields=…) in FixtureSerializer for backwards compatability, but remove for ModelSerializer]**
 
 ## Specifiying nested serialization
 
-* nested = `True`|`False`|`<int>`
-* May also be set in `serialize()`
+The default `ModelSerializer` uses primary keys for relationships, but you can also easily generate nested representations using the `nested` option:
+
+    class AccountSerializer(ModelSerializer):
+        class Meta:
+            model = Account
+            exclude = ('id',)
+            nested = True
+
+The `nested` option may be set to either `True`, `False`, or an integer value.  If given an integer value it indicates the depth of relationships that should be traversed before reverting to a flat representation.
+
+When serializing objects using a nested representation any occurances of recursion will be recognised, and will fall back to using a flat representation.
+
+The `nestede` option may also be set by passing it to the `serialize()` method.
 
 **[TODO: Possibly only allow .serialize(nested=…) in FixtureSerializer]**
 
@@ -271,7 +300,7 @@ Describe how to write totally custom serializer classes, that determine their fi
 
 Give an example, using an `ObjectSerializer` class, that serializes all the instance attributes on an object. 
 
-* `.default_fields(self, obj, data, nested)`
+* `.default_fields(self, serialize, obj=None, data=None, nested=False)`
 
 ---
 
