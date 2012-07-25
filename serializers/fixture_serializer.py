@@ -29,7 +29,12 @@ class ModelNameField(Field):
 
 
 class FixtureFields(Serializer):
-    _dict_class = DictWithMetadata  # Unsorted dict to ensure byte-for-byte backwards compatability
+    """
+    A serializer which uses serializes all the local fields on a model.
+    """
+
+    # Use an unsorted dict to ensure byte-for-byte backwards compatability
+    _dict_class = DictWithMetadata
 
     def default_fields(self, serialize, obj=None, data=None, nested=False):
         """
@@ -118,10 +123,11 @@ class FixtureSerializer(Serializer):
 
     def restore_fields(self, data):
         """
-        Determine the model class, and store it so it can be used to:
+        Prior to deserializing the fields, we want to determine the model
+        class, and store it so it can be used to:
 
         1. Determine the correct fields for restoring attributes on the model.
-        2. Which class to use when restoring the model.
+        2. Determine the class to use when restoring the model.
         """
         self.model = models.get_model(*data['model'].split("."))
         return super(FixtureSerializer, self).restore_fields(data)
