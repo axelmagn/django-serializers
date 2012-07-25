@@ -3,7 +3,7 @@ from django.db import models
 from django.utils.datastructures import SortedDict
 from django.utils.encoding import smart_unicode
 from serializers import Field, PrimaryKeyRelatedField, NaturalKeyRelatedField
-from serializers import Serializer, ModelSerializer
+from serializers import Serializer
 from serializers.renderers import (
     JSONRenderer,
     YAMLRenderer,
@@ -60,6 +60,7 @@ class FixtureFields(Serializer):
     def default_fields(self, obj, data, nested):
         """
         Return the set of all fields defined on the model.
+        For fixtures this consists of only the local fields on the model.
         """
         if obj is not None:
             cls = obj.__class__
@@ -87,9 +88,12 @@ class FixtureFields(Serializer):
 
 class FixtureSerializer(Serializer):
     """
-    A serializer that is intended to produce dumpdata formatted structures.
+    A serializer that is used for serializing/deserializing fixtures.
+    This is used by the 'dumpdata' and 'loaddata' managment commands.
     """
-    _dict_class = DictWithMetadata  # Unsorted dict to ensure byte-for-byte backwards compatability
+
+    # NB: Unsorted dict to ensure byte-for-byte backwards compatability
+    _dict_class = DictWithMetadata
 
     pk = Field()
     model = ModelNameField()
@@ -106,13 +110,18 @@ class FixtureSerializer(Serializer):
             'json': JSONParser
         }
 
-    def revert_fields(self, data):
-        self.model = models.get_model(*data['model'].split("."))
-        return super(FixtureSerializer, self).revert_fields(data)
-
     def serialize(self, *args, **kwargs):
+        """
+        Override default behavior slightly:
+
+        1. Add 'use_natural_keys' option to switch between PK and NK relations.
+        2. The 'fields' and 'exclude' options should apply to the
+           'FixtureFields' child serializer, not to the root serializer.
+        """
         self.use_natural_keys = kwargs.pop('use_natural_keys', False)
 
+        # TODO: Actually, this is buggy - fields/exclude will be retained as
+        # state between subsequant calls to serialize()
         fields = kwargs.pop('fields', None)
         exclude = kwargs.pop('exclude', None)
         if fields is not None:
@@ -122,7 +131,17 @@ class FixtureSerializer(Serializer):
 
         return super(FixtureSerializer, self).serialize(*args, **kwargs)
 
-    def create_object(self, attrs):
+    def restore_fields(self, data):
+        """
+        Determine the model class, and store it so it can be used to:
+
+        1. Determine the correct fields for restoring attributes on the model.
+        2. Which class to use when restoring the model.
+        """
+        self.model = models.get_model(*data['model'].split("."))
+        return super(FixtureSerializer, self).restore_fields(data)
+
+    def restore_object(self, attrs):
         """
         Restore the model instance.
         """

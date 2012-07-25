@@ -98,12 +98,10 @@ We can explicitly control how the deserialized objects are instantiated by defin
         content = CharField()
         created = DateTimeField(label='created time')
        
-        def revert_object(self, cls, attrs):
+        def revert_object(self, attrs):
             return Comment(**attrs)
 
 Declaring the `revert_object` method is optional, and may not be required if you don't need to support deserialization.
-
-**Note: When working with the base Serializer class, the `cls` argument to `revert_object` is not used, and will always be `None`.  When working with `ModelSerializer` or `FixtureSerializer`, the `cls` argument will be set to the class of the model being serialized or deserialized.**
 
 ## Validation
 
@@ -133,7 +131,7 @@ The `Serializer` class is itself a type of `Field`, and can be used to represent
         content = CharField()
         created = DateTimeField(label='created time')
         
-        def revert_object(self, cls, attrs):
+        def revert_object(self, attrs):
             return Comment(**attrs)
 
 ## Creating custom fields
@@ -189,18 +187,17 @@ As an example, let's create a field that can be used represent the class name of
 
 # Working with ModelSerializers
 
-Typically the serializer classes will map closely to the model
+Often you'll want serializer classes that map closely to model definitions.
+The `ModelSerializer` class lets you automatically create a Serializer class with fields that corrospond to the Model fields.
 
     class AccountSerializer(ModelSerializer):
         class Meta:
             model = Account
 
-* `Model` can also be set on `init`
-
 ## Specifying fields explicitly 
 
     class AccountSerializer(ModelSerializer):
-        get_absolute_url = Field(field_name='url')
+        url = Field(source='get_absolute_url', readonly=True)
         group = NaturalKeyField()
 
         class Meta:
@@ -221,10 +218,14 @@ Typically the serializer classes will map closely to the model
 * exclude
 * May also be set in `serialize()`
 
+**[TODO: Possibly only allow .serialize(fields=…) in FixtureSerializer for backwards compatability, but remove for ModelSerializer]**
+
 ## Specifiying nested serialization
 
 * nested = `True`|`False`|`<int>`
 * May also be set in `serialize()`
+
+**[TODO: Possibly only allow .serialize(nested=…) in FixtureSerializer]**
 
 ## Customising the default fields used by a ModelSerializer
 
@@ -270,8 +271,7 @@ Describe how to write totally custom serializer classes, that determine their fi
 
 Give an example, using an `ObjectSerializer` class, that serializes all the instance attributes on an object. 
 
-* `.default_fields(self, obj, cls, nested)`
-* `.determine_class(self, data)`
+* `.default_fields(self, obj, data, nested)`
 
 ---
 
@@ -309,7 +309,7 @@ Attributes:
 
 **TODO: Factor `model_field` out of initialize.**
 
-**TODO: Field options: `read_only`, `blank`, etc…**
+**TODO: Field options: `readonly`, `blank`, etc…**
 
 ## Relational field types
 
@@ -330,15 +330,18 @@ Classes:
 
 Methods:
 
-* `.__init__(self, context=None, nested=None)`
-* `.serialize(self, format, object, fields=None, exclude=None, **options)`
-* `.deserialize(self, format, stream)`
+* `.__init__(self, context=None)`
+* `.serialize(self, format, object, fields=None, exclude=None, nested=None, **options)`
+* `.deserialize(self, format, stream, **options)`
+* `.render(self, data, stream, format, **options)`
+* `.parse(self, stream, format, **options)`
 * `.to_native(self, obj)`
 * `.from_native(self, data)`
-* `.default_fields(self, obj, cls, data)`
-* `.determine_class(self, data)`
-* `.get_field_name(self, obj, field_name)`
-* `.create_object(self, cls, attrs)`
+* `.default_fields(self, obj, data, nested)`
+* `.field_key(self, field_name)`
+* `.convert_object(self, obj)`
+* `.restore_fields(self, data)`
+* `.restore_object(self, attrs)`
 
 Attributes:
 

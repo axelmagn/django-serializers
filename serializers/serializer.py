@@ -85,7 +85,7 @@ class SerializerOptions(object):
 class ModelSerializerOptions(SerializerOptions):
     def __init__(self, meta, **kwargs):
         super(ModelSerializerOptions, self).__init__(meta, **kwargs)
-        self.model = _get_option('model', kwargs, meta, None)
+        self.model = getattr(meta, 'model', None)
 
 
 class SerializerMetaclass(type):
@@ -123,7 +123,7 @@ class BaseSerializer(Field):
 
     def get_fields(self, obj, data, nested):
         """
-        Returns the complete set of fields for the object, as a dict.
+        Returns the complete set of fields for the object as a dict.
 
         This will be the set of any explicitly declared fields,
         plus the set of fields returned by get_default_fields().
@@ -203,6 +203,10 @@ class BaseSerializer(Field):
         return field_name
 
     def convert_object(self, obj):
+        """
+        Core of serialization.
+        Convert an object into a dictionary of serialized field values.
+        """
         if obj in self.stack and not self.opts.is_root:
             raise RecursionOccured()
         self.stack.append(obj)
@@ -220,22 +224,28 @@ class BaseSerializer(Field):
             ret.set_with_metadata(key, value, field)
         return ret
 
-    def revert_fields(self, data):
+    def restore_fields(self, data):
+        """
+        Core of deserialization, together with `restore_object`.
+        Converts a dictionary of data into a dictionary of deserialized fields.
+        """
         fields = self.get_fields(None, data, nested=self.opts.nested)
         reverted_data = {}
         for field_name, field in fields.items():
             field.field_from_native(data, field_name, reverted_data)
         return reverted_data
 
-    def create_object(self, attrs):
+    def restore_object(self, attrs):
         """
-        Deserialize a set of attributes into an object instance.
+        Deserialize a dictionary of attributes into an object instance.
+        You should override this method to control how deserialized objects
+        are instantiated.
         """
         return attrs
 
     def to_native(self, obj):
         """
-        First stage of serialization.  Objects -> Primatives.
+        Serialize objects -> primatives.
         """
         if _is_protected_type(obj):
             return obj
@@ -250,45 +260,46 @@ class BaseSerializer(Field):
 
     def from_native(self, data):
         """
-        Reverse first stage of serialization.  Primatives -> Objects.
+        Deserialize primatives -> objects.
         """
         if _is_protected_type(data):
             return data
         elif hasattr(data, '__iter__') and not isinstance(data, dict):
             return (self.from_native(item) for item in data)
         else:
-            attrs = self.revert_fields(data)
-            return self.create_object(attrs)
+            attrs = self.restore_fields(data)
+            return self.restore_object(attrs)
 
-    def render(self, data, stream, format, **opts):
+    def render(self, data, stream, format, **options):
         """
-        Second stage of serialization.  Primatives -> Bytestream.
+        Render primatives -> bytestream for serialization.
         """
         renderer = self.opts.renderer_classes[format]()
-        return renderer.render(data, stream, **opts)
+        return renderer.render(data, stream, **options)
 
-    def parse(self, stream, format):
+    def parse(self, stream, format, **options):
         """
-        Reverse the second stage of serialization.  Bytestream -> Primatives.
+        Parse bytestream -> primatives for deserialization.
         """
         parser = self.opts.parser_classes[format]()
-        return parser.parse(stream)
+        return parser.parse(stream, **options)
 
-    def serialize(self, format, obj, **opts):
+    def serialize(self, format, obj, **options):
         """
         Perform serialization of objects into bytestream.
-        First converts the objects into primatives, then renders to bytestream.
+        First converts the objects into primatives,
+        then renders primative types to bytestream.
         """
         self.stack = []
 
         for keyword in ('fields', 'exclude', 'nested'):
-            if keyword in opts:
-                setattr(self.opts, keyword, opts.pop(keyword))
+            if keyword in options:
+                setattr(self.opts, keyword, options.pop(keyword))
 
         data = self.to_native(obj)
         if format != 'python':
-            stream = opts.pop('stream', StringIO())
-            self.render(data, stream, format, **opts)
+            stream = options.pop('stream', StringIO())
+            self.render(data, stream, format, **options)
             if hasattr(stream, 'getvalue'):
                 self.value = stream.getvalue()
             else:
@@ -297,11 +308,11 @@ class BaseSerializer(Field):
             self.value = data
         return self.value
 
-    def deserialize(self, format, stream_or_string):
+    def deserialize(self, format, stream_or_string, **options):
         """
         Perform deserialization of bytestream into objects.
         First parses the bytestream into primative types,
-        then reverts into objects.
+        then converts primative types into objects.
         """
         self.stack = []
 
@@ -310,7 +321,7 @@ class BaseSerializer(Field):
                 stream = BytesIO(stream_or_string)
             else:
                 stream = stream_or_string
-            data = self.parse(stream, format)
+            data = self.parse(stream, format, **options)
         else:
             data = stream_or_string
         return self.from_native(data)
@@ -321,9 +332,12 @@ class Serializer(BaseSerializer):
 
 
 class ObjectSerializer(Serializer):
-    def default_fields(self, obj, cls, nested):
+    def default_fields(self, obj, data, nested):
         """
         Given an object, return the default set of fields to serialize.
+
+        For ObjectSerializer this should be the set of all the non-private
+        object attributes.
         """
         if obj is None:
             raise Exception('ObjectSerializer does not support deserialization')
@@ -393,7 +407,7 @@ class ModelSerializer(RelatedField, Serializer):
         """
         return Field()
 
-    def create_object(self, attrs):
+    def restore_object(self, attrs):
         """
         Restore the model instance.
         """

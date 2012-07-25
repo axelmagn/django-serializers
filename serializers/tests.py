@@ -298,7 +298,7 @@ class SerializerFieldTests(SerializationTestCase):
 
         self.assertEquals(CustomSerializer().serialize('python', self.obj), expected)
 
-    # def test_is_root(self):
+    # def test_source(self):
     #     """
     #     Setting source='*', means the complete object will be used when
     #     serializing that field.
@@ -526,10 +526,15 @@ class RaceEntry(models.Model):
     finish_time = models.DateTimeField()
 
 
+class RaceEntrySerializer(ModelSerializer):
+    class Meta:
+        model = RaceEntry
+
+
 class TestSimpleModel(SerializationTestCase):
     def setUp(self):
         self.dumpdata = FixtureSerializer()
-        self.serializer = ModelSerializer(model=RaceEntry)
+        self.serializer = RaceEntrySerializer()
         RaceEntry.objects.create(
             name='John doe',
             runner_number=6014,
@@ -600,7 +605,7 @@ class TestSimpleModel(SerializationTestCase):
 class TestNullPKModel(SerializationTestCase):
     def setUp(self):
         self.dumpdata = FixtureSerializer()
-        self.serializer = ModelSerializer(model=RaceEntry)
+        self.serializer = RaceEntrySerializer()
         self.objs = [RaceEntry(
             name='John doe',
             runner_number=6014,
@@ -653,10 +658,15 @@ class PremiumAccount(Account):
     date_upgraded = models.DateTimeField()
 
 
+class PremiumAccountSerializer(ModelSerializer):
+    class Meta:
+        model = PremiumAccount
+
+
 class TestModelInheritance(SerializationTestCase):
     def setUp(self):
         self.dumpdata = FixtureSerializer()
-        self.serializer = ModelSerializer(model=PremiumAccount)
+        self.serializer = PremiumAccountSerializer()
         PremiumAccount.objects.create(
             points=42,
             company='Foozle Inc.',
@@ -854,13 +864,18 @@ class Profile(models.Model):
     date_of_birth = models.DateTimeField()
 
 
+class ProfileSerializer(ModelSerializer):
+    class Meta:
+        model = Profile
+
+
 class TestOneToOneModel(SerializationTestCase):
     """
     Test one-to-one field relationship on a model.
     """
     def setUp(self):
         self.dumpdata = FixtureSerializer()
-        self.profile_serializer = ModelSerializer(model=Profile)
+        self.profile_serializer = ProfileSerializer()
         user = User.objects.create(email='joe@example.com')
         Profile.objects.create(
             user=user,
@@ -987,19 +1002,25 @@ class Vehicle(models.Model):
     date_of_manufacture = models.DateField()
 
 
+class VehicleSerializer(ModelSerializer):
+    class Meta:
+        model = Vehicle
+
+
+class NestedVehicleSerializer(ModelSerializer):
+    class Meta:
+        model = Vehicle
+        nested = True
+
+
 class TestFKModel(SerializationTestCase):
     """
     Test one-to-one field relationship on a model.
     """
     def setUp(self):
-        class NestedVehicleSerializer(ModelSerializer):
-            class Meta:
-                model = Vehicle
-                nested = True
-
         self.dumpdata = FixtureSerializer()
         self.nested_model = NestedVehicleSerializer()
-        self.flat_model = ModelSerializer(model=Vehicle)
+        self.flat_model = VehicleSerializer()
         self.owner = Owner.objects.create(
             email='tom@example.com'
         )
@@ -1121,19 +1142,25 @@ class Book(models.Model):
     in_stock = models.BooleanField()
 
 
+class BookSerializer(ModelSerializer):
+    class Meta:
+        model = Book
+
+
+class NestedBookSerializer(ModelSerializer):
+    class Meta:
+        model = Book
+        nested = True
+
+
 class TestManyToManyModel(SerializationTestCase):
     """
     Test one-to-one field relationship on a model.
     """
     def setUp(self):
-        class NestedBookSerializer(ModelSerializer):
-            class Meta:
-                model = Book
-                nested = True
-
         self.dumpdata = FixtureSerializer()
         self.nested_model = NestedBookSerializer()
-        self.flat_model = ModelSerializer(model=Book)
+        self.flat_model = BookSerializer()
         self.lucy = Author.objects.create(
             name='Lucy Black'
         )
