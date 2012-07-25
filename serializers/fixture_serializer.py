@@ -16,32 +16,6 @@ from serializers.parsers import (
 from serializers.utils import DictWithMetadata
 
 
-class PrimaryKeyOrNaturalKeyRelatedField(PrimaryKeyRelatedField):
-    """
-    Serializes to either pk or natural key, depending on if 'use_natural_keys'
-    is specified when calling `serialize()`.
-    """
-
-    def __init__(self, *args, **kwargs):
-        self.nk_field = NaturalKeyRelatedField()
-        self.pk_field = PrimaryKeyRelatedField()
-        super(PrimaryKeyOrNaturalKeyRelatedField, self).__init__(*args, **kwargs)
-
-    def field_to_native(self, obj, field_name):
-        if self.root.use_natural_keys:
-            self.is_natural_key = True
-            return self.nk_field.field_to_native(obj, field_name)
-        self.is_natural_key = False
-        return self.pk_field.field_to_native(obj, field_name)
-
-    def field_from_native(self, data, field_name, into):
-        value = data.get(field_name)
-        if hasattr(self.model_field.rel.to._default_manager, 'get_by_natural_key') and hasattr(value, '__iter__'):
-            self.nk_field.model_field = self.model_field  # Total hack
-            return self.nk_field.field_from_native(data, field_name, into)
-        return self.pk_field.field_from_native(data, field_name, into)
-
-
 class ModelNameField(Field):
     """
     Serializes the model instance's model name.  Eg. 'auth.User'.
@@ -78,12 +52,23 @@ class FixtureFields(Serializer):
             if model_field.rel and nested:
                 field = FixtureSerializer()
             elif model_field.rel:
-                field = PrimaryKeyOrNaturalKeyRelatedField()
+                field = self._nk_or_pk_field(serialize, data, model_field)
             else:
                 field = Field()
             field.initialize(parent=self, model_field=model_field)
             ret[model_field.name] = field
         return ret
+
+    def _nk_or_pk_field(self, serialize, data, model_field):
+        """
+        Determine if natural key field or primary key field should be used.
+        """
+        if ((serialize and self.root.use_natural_keys) or
+            not serialize
+            and hasattr(model_field.rel.to._default_manager, 'get_by_natural_key')
+            and hasattr(data[model_field.name], '__iter__')):
+            return NaturalKeyRelatedField()
+        return PrimaryKeyRelatedField()
 
 
 class FixtureSerializer(Serializer):
