@@ -41,7 +41,7 @@ def _is_protected_type(obj):
 def _get_declared_fields(bases, attrs):
     """
     Create a list of serializer field instances from the passed in 'attrs',
-    plus any similar fields on the base classes (in 'bases').
+    plus any fields on the base classes (in 'bases').
 
     Note that all fields from the base classes are used.
     """
@@ -115,13 +115,13 @@ class BaseSerializer(Field):
     #####
     # Methods to determine which fields to use when (de)serializing objects.
 
-    def default_fields(self, obj, data, nested):
+    def default_fields(self, serialize, obj=None, data=None, nested=False):
         """
         Return the complete set of default fields for the object, as a dict.
         """
         return {}
 
-    def get_fields(self, obj, data, nested):
+    def get_fields(self, serialize, obj=None, data=None, nested=False):
         """
         Returns the complete set of fields for the object as a dict.
 
@@ -145,7 +145,7 @@ class BaseSerializer(Field):
             field.initialize(parent=self, model_field=model_field)
 
         # Add in the default fields
-        fields = self.default_fields(obj, data, nested)
+        fields = self.default_fields(serialize, obj, data, nested)
         for key, val in fields.items():
             if key not in ret:
                 ret[key] = val
@@ -213,13 +213,13 @@ class BaseSerializer(Field):
 
         ret = self._dict_class()
 
-        fields = self.get_fields(obj, None, nested=self.opts.nested)
+        fields = self.get_fields(serialize=True, obj=obj, nested=self.opts.nested)
         for field_name, field in fields.items():
             key = self.convert_field_key(obj, field_name, field)
             try:
                 value = field.field_to_native(obj, field_name)
             except RecursionOccured:
-                field = self.get_fields(obj, None, nested=False)[field_name]
+                field = self.get_fields(serialize=True, obj=obj, nested=False)[field_name]
                 value = field.field_to_native(obj, field_name)
             ret.set_with_metadata(key, value, field)
         return ret
@@ -229,7 +229,7 @@ class BaseSerializer(Field):
         Core of deserialization, together with `restore_object`.
         Converts a dictionary of data into a dictionary of deserialized fields.
         """
-        fields = self.get_fields(None, data, nested=self.opts.nested)
+        fields = self.get_fields(serialize=False, data=data, nested=self.opts.nested)
         reverted_data = {}
         for field_name, field in fields.items():
             field.field_from_native(data, field_name, reverted_data)
@@ -332,14 +332,14 @@ class Serializer(BaseSerializer):
 
 
 class ObjectSerializer(Serializer):
-    def default_fields(self, obj, data, nested):
+    def default_fields(self, serialize, obj=None, data=None, nested=False):
         """
         Given an object, return the default set of fields to serialize.
 
         For ObjectSerializer this should be the set of all the non-private
         object attributes.
         """
-        if obj is None:
+        if not serialize:
             raise Exception('ObjectSerializer does not support deserialization')
 
         ret = SortedDict()
@@ -360,11 +360,11 @@ class ModelSerializer(RelatedField, Serializer):
     """
     _options_class = ModelSerializerOptions
 
-    def default_fields(self, obj, data, nested):
+    def default_fields(self, serialize, obj=None, data=None, nested=False):
         """
         Return all the fields that should be serialized for the model.
         """
-        if obj is not None:
+        if serialize:
             cls = obj.__class__
         else:
             cls = self.opts.model

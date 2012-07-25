@@ -57,12 +57,12 @@ class ModelNameField(Field):
 class FixtureFields(Serializer):
     _dict_class = DictWithMetadata  # Unsorted dict to ensure byte-for-byte backwards compatability
 
-    def default_fields(self, obj, data, nested):
+    def default_fields(self, serialize, obj=None, data=None, nested=False):
         """
         Return the set of all fields defined on the model.
         For fixtures this consists of only the local fields on the model.
         """
-        if obj is not None:
+        if serialize:
             cls = obj.__class__
         else:
             cls = self.parent.model
