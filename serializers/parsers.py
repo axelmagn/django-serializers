@@ -33,12 +33,13 @@ class DumpDataXMLParser(object):
         for field_node in node.getElementsByTagName("field"):
             # If the field is missing the name attribute, bail
             name = field_node.getAttribute("name")
+            rel = field_node.getAttribute("rel")
             if not name:
                 raise DeserializationError("<field> node is missing the 'name' attribute")
 
             if field_node.getElementsByTagName('None'):
                 value = None
-            elif field_node.getElementsByTagName('object'):
+            elif rel == 'ManyToManyRel':
                 value = [n.getAttribute('pk') for n in field_node.getElementsByTagName('object')]
             elif field_node.getElementsByTagName('natural'):
                 value = [getInnerText(n).strip() for n in field_node.getElementsByTagName('natural')]
