@@ -87,7 +87,7 @@ class FixtureSerializer(Serializer):
 
     pk = Field()
     model = ModelNameField()
-    fields = FixtureFields(is_root=True)
+    fields = FixtureFields(source='*')
 
     class Meta:
         renderer_classes = {
@@ -132,7 +132,7 @@ class FixtureSerializer(Serializer):
         self.model = models.get_model(*data['model'].split("."))
         return super(FixtureSerializer, self).restore_fields(data)
 
-    def restore_object(self, attrs):
+    def restore_object(self, attrs, instance=None):
         """
         Restore the model instance.
         """

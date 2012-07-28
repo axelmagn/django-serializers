@@ -15,8 +15,10 @@ import warnings
 class Field(object):
     creation_counter = 0
 
-    def __init__(self, label=None):
+    def __init__(self, label=None, source=None, readonly=False):
         self.label = label
+        self.source = source
+        self.readonly = readonly
         self.parent = None
         self.creation_counter = Field.creation_counter
         Field.creation_counter += 1
@@ -30,6 +32,7 @@ class Field(object):
         """
         self.parent = parent
         self.root = parent.root or parent
+        self.context = self.root.context
         if model_field:
             self.model_field = model_field
 
@@ -38,9 +41,18 @@ class Field(object):
         Given a dictionary and a field name, updates the dictionary `into`,
         with the field and it's deserialized value.
         """
-        if not field_name in data:
+        if self.readonly:
             return
-        into[field_name] = self.from_native(data.get(field_name))
+
+        try:
+            native = data[field_name]
+        except KeyError:
+            return  # TODO Consider validation behaviour, 'required' opt etc...
+
+        if self.source == '*':
+            into.update(self.from_native(native))
+        else:
+            into[self.source or field_name] = self.from_native(native)
 
     def from_native(self, value):
         """
@@ -58,10 +70,14 @@ class Field(object):
         Given and object and a field name, returns the value that should be
         serialized for that field.
         """
+        if self.source == '*':
+            return self.to_native(obj)
+
         self.obj = obj  # Need to hang onto this in the case of model fields
         if hasattr(self, 'model_field'):
             return self.to_native(self.model_field._get_val_from_obj(obj))
-        return self.to_native(getattr(obj, field_name))
+
+        return self.to_native(getattr(obj, self.source or field_name))
 
     def to_native(self, value):
         """

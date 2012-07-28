@@ -298,55 +298,55 @@ class SerializerFieldTests(SerializationTestCase):
 
         self.assertEquals(CustomSerializer().serialize('python', self.obj), expected)
 
-    # def test_source(self):
-    #     """
-    #     Setting source='*', means the complete object will be used when
-    #     serializing that field.
-    #     """
-    #     class CustomSerializer(ObjectSerializer):
-    #         full_name = ObjectSerializer(label='Full name')
-    #         details = ObjectSerializer(fields=('first_name', 'last_name'), label='Details',
-    #                              source='*')
+    def test_source(self):
+        """
+        Setting source='*', means the complete object will be used when
+        serializing that field.
+        """
+        class CustomSerializer(ObjectSerializer):
+            full_name = ObjectSerializer(label='Full name')
+            details = ObjectSerializer(label='Details', source='*')
 
-    #         class Meta:
-    #             fields = ('full_name', 'details')
+            class Meta:
+                fields = ('full_name', 'details')
 
-    #     expected = {
-    #         'Full name': 'john doe',
-    #         'Details': {
-    #             'first_name': 'john',
-    #             'last_name': 'doe'
-    #         }
-    #     }
+        expected = {
+            'Full name': 'john doe',
+            'Details': {
+                'first_name': 'john',
+                'last_name': 'doe',
+                'age': 42
+            }
+        }
 
-    #     self.assertEquals(CustomSerializer().serialize('python', self.obj), expected)
+        self.assertEquals(CustomSerializer().serialize('python', self.obj), expected)
 
-    # def test_source_all_with_custom_serializer(self):
-    #     """
-    #     A custom serializer can be used with source='*' as serialize the
-    #     complete object within a field.
-    #     """
-    #     class DetailsSerializer(ObjectSerializer):
-    #         first_name = ObjectSerializer(label='First name')
-    #         last_name = ObjectSerializer(label='Last name')
+    def test_source_all_with_custom_serializer(self):
+        """
+        A custom serializer can be used with source='*' as serialize the
+        complete object within a field.
+        """
+        class DetailsSerializer(ObjectSerializer):
+            first_name = ObjectSerializer(label='First name')
+            last_name = ObjectSerializer(label='Last name')
 
-    #         class Meta:
-    #             fields = ('first_name', 'last_name')
+            class Meta:
+                fields = ('first_name', 'last_name')
 
-    #     class CustomSerializer(ObjectSerializer):
-    #         full_name = ObjectSerializer(label='Full name')
-    #         details = DetailsSerializer(label='Details', source='*')
+        class CustomSerializer(ObjectSerializer):
+            full_name = ObjectSerializer(label='Full name')
+            details = DetailsSerializer(label='Details', source='*')
 
-    #         class Meta:
-    #             fields = ('full_name', 'details')
+            class Meta:
+                fields = ('full_name', 'details')
 
-    #     expected = {
-    #         'Full name': 'john doe',
-    #         'Details': {
-    #             'First name': 'john',
-    #             'Last name': 'doe'
-    #         }
-    #     }
+        expected = {
+            'Full name': 'john doe',
+            'Details': {
+                'First name': 'john',
+                'Last name': 'doe'
+            }
+        }
 
     #     self.assertEquals(CustomSerializer().serialize('python', self.obj), expected)
 

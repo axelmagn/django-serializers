@@ -98,7 +98,7 @@ We can explicitly control how the deserialized objects are instantiated by defin
         content = CharField()
         created = DateTimeField(label='created time')
        
-        def revert_object(self, attrs):
+        def revert_object(self, attrs, instance=None):
             return Comment(**attrs)
 
 Declaring the `revert_object` method is optional, and may not be required if you don't need to support deserialization.
@@ -198,7 +198,7 @@ The `ModelSerializer` class lets you automatically create a Serializer class wit
 
 ## Specifying fields explicitly 
 
-You can add extra fields to a `ModelSerializer`, or override the default fields, by declaring fields on the class, just as you would for a `Serializer` class.
+You can add extra fields to a `ModelSerializer` or override the default fields by declaring fields on the class, just as you would for a `Serializer` class.
 
     class AccountSerializer(ModelSerializer):
         url = CharField(source='get_absolute_url', readonly=True)
@@ -252,7 +252,7 @@ The `nested` option may be set to either `True`, `False`, or an integer value.  
 
 When serializing objects using a nested representation any occurances of recursion will be recognised, and will fall back to using a flat representation.
 
-The `nestede` option may also be set by passing it to the `serialize()` method.
+The `nested` option may also be set by passing it to the `serialize()` method.
 
 **[TODO: Possibly only allow .serialize(nested=…) in FixtureSerializer]**
 
@@ -265,7 +265,7 @@ The `nestede` option may also be set by passing it to the `serialize()` method.
         def get_nested_field(self, model_field):
             return ModelSerializer()
 
-        def get_related_field(self, model_field):                
+        def get_related_field(self, model_field):
             return NaturalKeyField()
 
         def get_field(self, model_field):
@@ -321,7 +321,7 @@ Classes:
 
 Methods:
 
-* `.__init__(self, ...)`
+* `.__init__(self, label=None, source=None, readonly=False)`
 * `.initialize(self, parent, model_field)`
 * `.to_native(self, value)`
 * `.from_native(self, value)`
@@ -338,7 +338,7 @@ Attributes:
 
 **TODO: Factor `model_field` out of initialize.**
 
-**TODO: Field options: `readonly`, `blank`, etc…**
+**TODO: Field options: `errors`, `blank`, etc…**
 
 ## Relational field types
 
@@ -360,7 +360,7 @@ Classes:
 Methods:
 
 * `.__init__(self, context=None)`
-* `.serialize(self, format, object, fields=None, exclude=None, nested=None, **options)`
+* `.serialize(self, format, object, context=None, fields=None, exclude=None, nested=None, **options)`
 * `.deserialize(self, format, stream, **options)`
 * `.render(self, data, stream, format, **options)`
 * `.parse(self, stream, format, **options)`

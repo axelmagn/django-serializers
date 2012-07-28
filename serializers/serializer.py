@@ -60,16 +60,11 @@ def _get_declared_fields(bases, attrs):
     return SortedDict(fields)
 
 
-def _get_option(name, kwargs, meta, default):
-    return kwargs.get(name, getattr(meta, name, default))
-
-
 class SerializerOptions(object):
     def __init__(self, meta, **kwargs):
         self.nested = getattr(meta, 'nested', False)
         self.fields = getattr(meta, 'fields', ())
         self.exclude = getattr(meta, 'exclude', ())
-        self.is_root = _get_option('is_root', kwargs, meta, False)
         self.renderer_classes = getattr(meta, 'renderer_classes', {
             'xml': XMLRenderer,
             'json': JSONRenderer,
@@ -105,8 +100,8 @@ class BaseSerializer(Field):
     def getvalue(self):
         return self.value  # Backwards compatability with serialization API.
 
-    def __init__(self, label=None, **kwargs):
-        super(BaseSerializer, self).__init__(label=label)
+    def __init__(self, label=None, source=None, readonly=False, **kwargs):
+        super(BaseSerializer, self).__init__(label, source, readonly)
         self.fields = copy.deepcopy(self.base_fields)
         self.opts = self._options_class(self.Meta, **kwargs)
         self.parent = None
@@ -179,18 +174,6 @@ class BaseSerializer(Field):
         else:
             self.opts.nested = parent.opts.nested
 
-    def field_to_native(self, obj, field_name):
-        if self.opts.is_root:
-            return self.to_native(obj)
-        return super(BaseSerializer, self).field_to_native(obj, field_name)
-
-    def field_from_native(self, data, field_name, into):
-        field_data = self.from_native(data.get(field_name))
-        if self.opts.is_root:
-            into.update(field_data)
-        else:
-            into[field_name] = field_data
-
     #####
     # Methods to convert or revert from objects <--> primative representations.
 
@@ -207,7 +190,7 @@ class BaseSerializer(Field):
         Core of serialization.
         Convert an object into a dictionary of serialized field values.
         """
-        if obj in self.stack and not self.opts.is_root:
+        if obj in self.stack and not self.source == '*':
             raise RecursionOccured()
         self.stack.append(obj)
 
@@ -235,12 +218,15 @@ class BaseSerializer(Field):
             field.field_from_native(data, field_name, reverted_data)
         return reverted_data
 
-    def restore_object(self, attrs):
+    def restore_object(self, attrs, instance=None):
         """
         Deserialize a dictionary of attributes into an object instance.
         You should override this method to control how deserialized objects
         are instantiated.
         """
+        if instance is not None:
+            instance.update(attrs)
+            return instance
         return attrs
 
     def to_native(self, obj):
@@ -268,7 +254,7 @@ class BaseSerializer(Field):
             return (self.from_native(item) for item in data)
         else:
             attrs = self.restore_fields(data)
-            return self.restore_object(attrs)
+            return self.restore_object(attrs, instance=getattr(self, 'instance', None))
 
     def render(self, data, stream, format, **options):
         """
@@ -284,13 +270,14 @@ class BaseSerializer(Field):
         parser = self.opts.parser_classes[format]()
         return parser.parse(stream, **options)
 
-    def serialize(self, format, obj, **options):
+    def serialize(self, format, obj, context=None, **options):
         """
         Perform serialization of objects into bytestream.
         First converts the objects into primatives,
         then renders primative types to bytestream.
         """
         self.stack = []
+        self.context = context or {}
 
         for keyword in ('fields', 'exclude', 'nested'):
             if keyword in options:
@@ -308,13 +295,15 @@ class BaseSerializer(Field):
             self.value = data
         return self.value
 
-    def deserialize(self, format, stream_or_string, **options):
+    def deserialize(self, format, stream_or_string, instance=None, context=None, **options):
         """
         Perform deserialization of bytestream into objects.
         First parses the bytestream into primative types,
         then converts primative types into objects.
         """
         self.stack = []
+        self.context = context or {}
+        self.instance = instance
 
         if format != 'python':
             if isinstance(stream_or_string, basestring):
@@ -407,7 +396,7 @@ class ModelSerializer(RelatedField, Serializer):
         """
         return Field()
 
-    def restore_object(self, attrs):
+    def restore_object(self, attrs, instance=None):
         """
         Restore the model instance.
         """
