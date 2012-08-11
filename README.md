@@ -1,3 +1,5 @@
+**WARNING: The documentation in the develop branch is not totally representative of the codebase as it currently stands!**
+
 # Django Serializers
 
 **Customizable Serialization for Django.**
@@ -6,40 +8,18 @@
 
 ## Overview
 
-django-serializers provides flexible serialization of objects, models and
-querysets.
-
-It is intended to be a potential replacement for the current, inflexible
-serialization.  It should be able to support the current `dumpdata` format,
-whilst also being easy to override and customise.
-
-Serializers are declared in a simlar format to `Form` and `Model` declarations,
-with an inner `Meta` class providing general options, and optionally with a set
-of `Field` and/or `Serializer` classes being declaring inside the parent `Serializer` class.
+`django-serializers` gives you a declarative serialization and deserialization API, that mirrors Django's `Form`/`ModelForm` API.  It provides flexible serialization and deserialization of objects, models and querysets, and is intended to be a potential replacement for Django's current  fixture serialization.
 
 Features:
 
-* Supports serialization of arbitrary python objects using the `ObjectSerializer` class.
-* Supports serialization of models and querysets using `ModelSerializer`.
-* Supports serialization to the existing dumpdata format, using `DumpDataSerializer`.
-* Supports flat serialization, and nested serialization (to arbitrary depth), and handles recursive relationships.
-* Allows for both implicit fields, which are determined at the point of serialization, and explicit fields, which are declared on the serializer class.
-* The declaration of the serialization structure is handled independantly of the final encoding used (eg 'json', 'xml' etc…).  This is desirable for eg. APIs which want to support a given dataset being output to a number of different formats.
-* Currently supports 'json', 'yaml', 'xml', 'csv', 'html'.
-* Supports both fields that corrospond to Django model fields, and fields that corrospond to other attributes, such as `get_absolute_url`.
-* Supports relations serializing to primary keys, natural keys, or custom implementations.
-* Supports streaming output, rather than loading all objects into memory.
-* Hooks throughout to allow for complete customization.  Eg. Writing key names using javascript style camel casing.
-* Simple, clean API.
+* Arbitrary objects can be serialized using the `Serializer` class.
+* Models and querysets can be serialized using the `ModelSerializer` class.
+* Supports backwards compatible fixture serialization, using the `FixtureSerializer` class.
+* Supports flat or nested serialization, and handles depth and recursive relationships.
+* Currently supports 'json', 'yaml', 'xml', 'csv'.
+* Relationships can be serialized to primary keys, natural keys, or custom implementations.
 * Comprehensive test suite.
-* Backwards compatible with the existing `dumpdata` serialization API.
 * Passes Django's existing serialization test suite.
-
-Notes:
-
-* `django-serializers` currently does not address deserialization.  Replacing
-the existing `loaddata` deserialization with a more flexible deserialization
-API is considered out of scope until the serialization API has first been adequatly addressed.
 
 For an example of using `django-serializers` to create Web APIs,
 please see [django-auto-api][2].
@@ -67,580 +47,351 @@ the provided `manage.py` file:
 
     manage.py test
 
-# Examples
+# Working with Serializers
 
-We'll use the following example class to show some simple examples
-of serialization:
+## Serializing objects
 
-    class Person(object):
-        def __init__(self, first_name, last_name, age):
-            self.first_name = first_name
-            self.last_name = last_name
-            self.age = age
+Let's start by creating a simple object we can use for example purposes:
 
-        @property
-        def full_name(self):
-            return self.first_name + ' ' + self.last_name
+    class Comment(object):
+        def __init__(self, title, content, created=None):
+            self.title = title
+            self.content = content
+            self.created = created or datetime.datetime.now()
+    
+    comment = Comment(title='blah', content='foo bar baz')
 
-You can serialize arbitrary objects using the `Serializer` class.  Objects are
-serialized into dictionaries, containing key value pairs of any non-private
-instance attributes on the object:
+We'll declare a serializer that we can use to serialize and deserialize `Comment` objects.
+Declaring a serializer looks very similar to declaring a form:
 
-    >>> from serializers import Serializer
-    >>> person = Person('john', 'doe', 42)
-    >>> serializer = Serializer()
-    >>> print serializer.encode(person, 'json', indent=4)
+    class CommentSerializer(Serializer):
+        title = CharField()
+        content = CharField()
+        created = DateTimeField(label='created time')
+
+We can now use `CommentSerializer` to serialize a comment, or list of comments, into `json`, `yaml`, `xml` or `csv` formats:
+
+    >>> serializer = CommentSerializer()
+    >>> stream = serializer.serialize('json', comment, indent=4)
+    >>> print stream
     {
-        'first_name': 'john',
-        'last_name': 'doe',
-        'age': 42
+        "title": "blah", 
+        "content": "foo bar baz", 
+        "created time": "2012-07-12T09:01:14.302"
     }
 
-Let's say we only want to include some specific fields.  We can do so either by
-setting those fields when we instantiate the `Serializer`...
+## Deserializing objects
 
-    >>> serializer = Serializer(fields=('first_name', 'age'))
-    >>> print serializer.encode(person, 'json', indent=4)
-    {
-        'first_name': 'john',
-        'age': 42
-    }
+We can deserialize encoded data, using the same serializer class: 
 
-...Or by defining a custom `Serializer` class:
+    >>> serializer.deserialize('json', stream)
+    {'content': u'foo bar baz', 'created': datetime.datetime(2012, 7, 12, 9, 1, 14, 302000), 'title': u'blah'}
+    
+Note that when we deserialized the stream, we ended up with a dictionary containing the correct fields, but we haven't got a fully deserialized `Comment` instance.  
 
-    >>> class PersonSerializer(Serializer):
-    >>>     class Meta:
-    >>>         fields = ('first_name', 'age')
-    >>>
-    >>> print PersonSerializer().encode(person, 'json', indent=4)
-    {
-        'first_name': 'john',
-        'age': 42
-    }
+That's because the `CommentSerializer` doesn't yet have any way of determining what class it should deserialize objects into, or how those objects should be instantiated.
 
-We can also include additional attributes on the object to be serialized, or
-exclude existing attributes:
+We can explicitly control how the deserialized objects are instantiated by defining the `revert_object` method:
 
-    >>> class PersonSerializer(Serializer):
-    >>>     class Meta:
-    >>>         exclude = ('first_name', 'last_name')
-    >>>         include = 'full_name'
-    >>>
-    >>> print PersonSerializer().encode(person, 'json', indent=4)
-    {
-        'full_name': 'john doe',
-        'age': 42
-    }
+    class CommentSerializer(Serializer):
+        title = CharField()
+        content = CharField()
+        created = DateTimeField(label='created time')
+       
+        def revert_object(self, attrs, instance=None):
+            return Comment(**attrs)
 
-To explicitly define how the object fields should be serialized, we declare
-those fields on the serializer class:
+Declaring the `revert_object` method is optional, and may not be required if you don't need to support deserialization.
 
-    >>> class PersonSerializer(Serializer):
-    >>>    first_name = Field(label='First name')
-    >>>    last_name = Field(label='Last name')
-    >>>
-    >>> print PersonSerializer().encode(person, 'json', indent=4)
-    {
-        'First name': 'john',
-        'Last name': 'doe'
-    }
+## Validation
 
-We can also define new types of field and control how they are serialized:
+Deserializing the data also applies validation, in much the same way as occurs when using Forms.
+If validation fails, a `ValidationError` will be raised.
 
-    >>> class ClassNameField(Field):
-    >>>     def serialize(self, obj)
-    >>>         return obj.__class__.__name__
-    >>>
-    >>>     def get_field_value(self, obj, field_name):
-    >>>         return obj
-    >>>
-    >>> class ObjectSerializer(Serializer):
-    >>>     class_name = ClassNameField(label='class')
-    >>>     fields = Serializer(source='*')
-    >>>
-    >>> print ObjectSerializer().encode(person, 'json', indent=4)
-    {
-        'class': 'Person',
-        'fields': {
-            'first_name': 'john',
-            'last_name': 'doe',
-            'age': 42
-        }
-    }
+**TODO: Describe validation in more depth**
 
-django-serializers also handles nested serialization of objects:
+## Dealing with nested objects
 
-    >>> fred = Person('fred', 'bloggs', 41)
-    >>> emily = Person('emily', 'doe', 37)
-    >>> jane = Person('jane', 'doe', 44, partner=fred)
-    >>> john = Person('john', 'doe', 42, siblings=[jane, emily])
-    >>> Serializer().serialize(john)
-    {
-        'first_name': 'john',
-        'last_name': 'doe',
-        'age': 42,
-        'siblings': [
-            {
-                'first_name': 'jane',
-                'last_name': 'doe',
-                'age': 44,
-                'partner': {
-                    'first_name': 'fred',
-                    'last_name': 'bloggs',
-                    'age': 41,
-                }
-            },
-            {
-                'first_name': 'emily',
-                'last_name': 'doe',
-                'age': 37,
-            }
-        ]
-    }
+The previous example is fine for dealing with objects that only have simple datatypes, but sometimes we also need to be able to represent more complex objects,
+where some of the attributes of an object might not be simple datatypes such as strings, dates or integers.
 
-And handles flat serialization of objects:
+The `Serializer` class is itself a type of `Field`, and can be used to represent relationships where one object type is nested inside another.
 
-    >>> Serializer(depth=0).serialize(john)
-    {
-        'first_name': 'john',
-        'last_name': 'doe',
-        'age': 42,
-        'siblings': [
-            'jane doe',
-            'emily doe'
-        ]
-    }
-
-Similarly model and queryset serialization is supported, and handles either
-flat or nested serialization of foreign keys, many to many relationships, and
-one to one relationships, plus reverse relationships:
-
-    >>> class User(models.Model):
-    >>>     email = models.EmailField()
-    >>>
-    >>> class Profile(models.Model):
-    >>>     user = models.OneToOneField(User, related_name='profile')
-    >>>     country_of_birth = models.CharField(max_length=100)
-    >>>     date_of_birth = models.DateTimeField()
-    >>>
-    >>> ModelSerializer().serialize(profile)
-    {
-        'id': 1,
-        'user': {
-            'id': 1,
-            'email': 'joe@example.com'
-        },
-        'country_of_birth': 'UK',
-        'date_of_birth': datetime.datetime(day=5, month=4, year=1979)
-    }
-
-**TODO:**  Needs more ModelSerializer examples.
+    class UserSerializer(Serializer):
+        email = EmailField()
+        username = CharField()
+        
+        def revert_object(cls, attrs):
+            return User(**attrs)
 
 
-# Field reference
+    class CommentSerializer(Serializer):
+        user = UserSerializer()
+        title = CharField()
+        content = CharField()
+        created = DateTimeField(label='created time')
+        
+        def revert_object(self, attrs):
+            return Comment(**attrs)
 
-## Field options
+## Creating custom fields
 
-The following options may be provided when instatiating a `Field`.
+If you want to create a custom field, you'll probably want to override either one or both of the `.to_native()` and `.from_native()` methods.  These two methods are used to convert between the intial datatype, and a primative, serializable datatype.  Primative datatypes may be any of a number, string, date/time/datetime or None.  They may also be any list or dictionary like object that only contains other primative objects.
 
-### label
+The `.to_native()` method is called to convert the initial datatype into a primative, serializable datatype.  The `from_native()` method is called to restore a primative datatype into it's initial representation.
 
-If `label` is set it determines the name that should be used as the
-key when serializing the field.
+Let's look at an example of serializing a class that represents an RGB color value:
 
-### source
+    class Color(object):
+        """
+        A color represented in the RGB colorspace.
+        """
 
-If `source` is set it determines which attribute of the object to
-retrieve when serializing the field.
+        def __init__(self, red, green, blue):
+            assert(red >= 0 and green >= 0 and blue >= 0)
+            assert(red < 256 and green < 256 and blue < 256)
+            self.red, self.green, self.blue = red, green, blue
 
-A value of '*' is a special case, which denotes the entire object should be
-passed through and serialized by this field.
+    class ColourField(Field):
+        """
+        Color objects are serialized into "rgb(#, #, #)" notation.
+        """
 
-For example, the following serializer:
+        def to_native(self, obj):
+            return "rgb(%d, %d, %d)" % (obj.red, obj.green, obj.blue)
+      
+        def from_native(self, data):
+            data = data.strip('rgb(').rstrip(')')
+            red, green, blue = [int(col) for col in data.split(',')]
+            return Color(red, green, blue)
+            
+
+By default field values are treated as mapping to an attribute on the object.  If you need to customize how the field value is accessed and set you need to override `.field_to_native()` and/or `.field_from_native()`.
+
+As an example, let's create a field that can be used represent the class name of the object being serialized:
 
     class ClassNameField(Field):
-        def serialize(self, obj):
+        def field_to_native(self, obj, field_name):
+            """
+            Serialize the object's class name, not an attribute of the object.
+            """
             return obj.__class__.__name__
 
-        def get_field_value(self, obj, field_name):
-            return obj
+        def field_from_native(self, data, field_name, into):
+            """
+            We don't want to set anything when we revert this field.
+            """
+            pass
 
-    class CustomSerializer(Serializer):
-        class_name = ClassNameField(label='class')
-        fields = Serializer(source='*', depth=0)
+---
 
-Would serialize objects into a structure like this:
+# Working with ModelSerializers
 
-    {
-        "class": "Person"
-        "fields": {
-            "age": 23, 
-            "name": "Frank"
-            ...
-        }, 
-    }
+Often you'll want serializer classes that map closely to model definitions.
+The `ModelSerializer` class lets you automatically create a Serializer class with fields that corrospond to the Model fields.
 
-### convert
+    class AccountSerializer(ModelSerializer):
+        class Meta:
+            model = Account
 
-Provides a simple way to override the default convert function.
-`convert` should be a function that takes a single argument and returns
-the converted output.
+**[TODO: Explain model field to serializer field mapping in more detail]**
+
+## Specifying fields explicitly 
+
+You can add extra fields to a `ModelSerializer` or override the default fields by declaring fields on the class, just as you would for a `Serializer` class.
+
+    class AccountSerializer(ModelSerializer):
+        url = CharField(source='get_absolute_url', readonly=True)
+        group = NaturalKeyField()
+
+        class Meta:
+            model = Account
+
+Extra fields can corrospond to any property or callable on the model.
+
+## Relational fields
+
+When serializing model instances, there are a number of different ways you might choose to represent relationships.  The default representation is to use the primary keys of the related instances.
+
+Alternative representations include serializing using natural keys, serializing complete nested representations, or serializing using a custom representation, such as a URL that uniquely identifies the model instances.
+
+The `PrimaryKeyField` and `NaturalKeyField` fields provide alternative flat representations.
+
+The `ModelSerializer` class can itself be used as a field, in order to serialize relationships using nested representations.
+
+The `RelatedField` class may be subclassed to create a custom represenation of a relationship.  The subclass should override `.to_native()`, and optionally `.from_native()` if deserialization is supported.
+
+All the relational fields may be used for any relationship or reverse relationship on a model.
+
+## Specifying which fields should be included
+
+If you only want a subset of the default fields to be used in a model serializer, you can do so using `fields` or `exclude` options, just as you would with a `ModelForm`.
 
 For example:
 
-    class CustomSerializer(Serializer):
-        email = Field(convert=lamda obj: obj.lower())  # Force email fields to lowercase.
-        ...
-
-## Field methods
-
-### convert(self, obj)
-
-Returns a native python datatype representing the given object.
-
-If you are writing a custom field, overiding `convert()` will let
-you customise how the output is generated.
-
-### convert_field(self, obj, field_name)
-
-Returns a native python datatype representing the given `field_name`
-attribute on `object`.
-
-This defaults to getting the attribute from `obj` using `getattr`, and
-calling `convert` on the result.
-
-If you are writing a custom `Field`and need to control exactly which attributes
-of the object are serialized, you will need to override this method instead of
-the `convert` method.
-
-(For example if you are writing a`datetime` serializer which combines
-information from two seperate `date` and `time` attributes on an object, or
-perhaps if you are writing a `Field` serializer which serializes some
-non-attribute aspect of the object such as it's class name)
-
-### attributes(self)
-
-`attributes()` should return a dictionary that may be used when rendering to xml
-to determine the attribtues on the tag that represents this field.
-The default implementation returns an empty dictionary.
-
-
-## Available fields
-
-### Field
-
-The base class.  Converts objects into primative types, descending into
-dictionaries and lists as needed, and using string representations of objects
-that do not have a primative representation.
-
-### ModelField
-
-The base class for model fields.  Returns the field value as a primative type.
-
-### RelatedField
-
-The base class for relational model fields.  You should not use this class
-directly, but you may subclass it and override `convert()` in order to create a
-custom relational field.
-
-### PrimaryKeyRelatedField
-
-Returns related instances as their primrary key representations.
-
-### NaturalKeyRelatedField
-
-Returns related instances as their natural key representations.
-
-
-# Serializer reference
-
-## Serializer options
-
-Serializer options may be specified in the class definition, on the `Meta`
-inner class, or set when instatiating the `Serializer` object.
-
-For example, using the `Meta` inner class:
-
-    class PersonSerializer(ModelSerializer):
+    class AccountSerializer(ModelSerializer):
         class Meta:
-            fields = ('full_name', 'age')
+            model = Account
+            exclude = ('id',)
 
-    serializer = PersonSerializer()
+The `fields` and `exclude` options may also be set by passing them to the `serialize()` method.
 
-And the same, using arguments when instantiating the serializer.
+**[TODO: Possibly only allow .serialize(fields=…) in FixtureSerializer for backwards compatability, but remove for ModelSerializer]**
 
-    serializer = ModelSerializer(fields=('full_name', 'age'))
+## Specifiying nested serialization
 
-The serializer class is a subclass of `Field`, so also supports the `Field` API.
+The default `ModelSerializer` uses primary keys for relationships, but you can also easily generate nested representations using the `nested` option:
 
-### include
-
-A list of field names that should be included in the output.  This could
-include properties, class attributes, or any other attribute on the object that
-would not otherwise be serialized.
-
-### exclude
-
-A list of field names that should not be included in the output.
-
-### fields
-
-The complete list of field names that should be serialized.  If provided
-`fields` will override `include` and `exclude`.
-
-### depth
-
-The `depth` argument controls how nested objects should be serialized.
-The default is `None`, which means serialization should descend into nested
-objects.
-
-If `depth` is set to an integer value, serialization will descend that many
-levels into nested objects, before starting serialize nested models with a
-"flat" value.
-
-For example, setting `depth=0` ensures that only the fields of the top level
-object will be serialized, and any nested objects will simply be serialized
-as simple string representations of those objects.
-
-### include_default_fields
-
-The default set of fields on an object are the attributes that will be
-serialized if no serializer fields are explicitly specified on the class.
-
-When serializer fields *are* explicitly specified, these will normally be
-used instead of the default fields.
-
-If `include_default_fields` is set to `True`, then *both* the explicitly
-specified serializer fields *and* the object's default fields will be used.
-
-For example, in this case, only the 'full_name' field will be serialized:
-
-    class CustomSerializer(Serializer):
-        full_name = Serializer(label='Full name')
-
-In this case, both the 'full_name' field, and any instance attributes on the
-object will be serialized:
-
-    class CustomSerializer(Serializer):
-        full_name = Serializer(label='Full name')
-        
+    class AccountSerializer(ModelSerializer):
         class Meta:
-            include_default_fields = True
+            model = Account
+            exclude = ('id',)
+            nested = True
 
-### format
+The `nested` option may be set to either `True`, `False`, or an integer value.  If given an integer value it indicates the depth of relationships that should be traversed before reverting to a flat representation.
 
-If specified, format gives the default format that should be used by the
-`serialize` function.  Options are `json`, `yaml`, `xml`, `csv`, `html`.
+When serializing objects using a nested representation any occurances of recursion will be recognised, and will fall back to using a flat representation.
 
-Specifying a `format` allows the serializer to be backwards compatible with
-Django's existing serializers.  (So for instance, you can use it with the
-`SERIALIZATION_MODULES` setting.)
+The `nested` option may also be set by passing it to the `serialize()` method.
 
-Serializer methods
-==================
+**[TODO: Possibly only allow .serialize(nested=…) in FixtureSerializer]**
 
-### serialize(self, obj, format=None, **opts)
+## Customising the default fields used by a ModelSerializer
 
-The main entry point into serializers.
+    class AccountSerializer(ModelSerializer):
+        class Meta:
+            model = Account
 
-`format` should be a string representing the desired encoding.  Valid choices
-are `json`, `yaml`, `xml`, `csv` and `html`.
-If format is left as `None`, and no default format for the serializer is given
-by the `format` option, then the object will be serialized into a python object
-in the desired structure, but will not be rendered into a final output format.
+        def get_nested_field(self, model_field):
+            return ModelSerializer()
 
-`opts` may be any additional options specific to the encoding.
+        def get_related_field(self, model_field):
+            return NaturalKeyField()
 
-Internally serialization is a two-step process.  The first step calls the
-`convert()` method, which serializes the object into the desired structure,
-limited to a set of primative python datatypes.  The second step calls the
-`render()` method, which renders that structure into the final output string
-or bytestream.
+        def get_field(self, model_field):
+            return Field()
 
-### convert(self, obj)
+---
 
-Converts the given object or container into a primative representation which
-can be directly rendered.
+# Customizing encoding formats
 
-The default implementation will descend into dictionary and iterable
-containers, and call `convert_object` on any objects found inside those.
+Out of the box `django-serializers` supports `json`, `yaml`, `xml` and `csv` formats.  You can support other formats, or modify the existing formats, by writing custom renderer and parser classes.
 
-You won't typically need to override this, unless you want to heavily customise
-how objects are serialized, (For example if you want to wrap your serialization
-output in some container data) or want to write a custom `Serializer`.
-(For example if you're writing a  serializer which takes dictionary-like
-objects, and uses the keys as fields.)
+## Renderers
 
-### convert_object(self, obj)
+* Explain that input is native python datatypes.
+* Same as output of `.serialize('python', objects)`
+* Give HTML table example
 
-Converts the given object into a primative representation which can be directly rendered.
-This method is called by `convert()` for each object it finds that needs serializing.
-You won't typically need to override this method, but you will want to call
-into it, if you're overriding `convert`.
+## Parsers
 
-### render(self, data, stream, format, **opts)
 
-Render the primative representation `data` into a bytestream.
-You won't typically need to override this method.
+## Providing additional metadata
 
-### get_field_key(self, obj, field_name, field)
+* Sometimes need to be able to get at the Field instance used for each field.
+* format-specific metadata.
+* XML `attributes`, other examples: For HTML Field might have `template` or `widget`.
 
-Returns a native python object representing the key for the given field name.
-By default this will be the serializer's `label` if it has one specified,
-or the `field_name` string otherwise.
+---
 
-Override this to provide custom behaviour, for example to represent keys using
-javascipt style upperCasedNames.
+# Creating custom Serializer types
 
-### get_default_field_names(self, obj)
+Describe how to write totally custom serializer classes, that determine their fields automatically based on the object being serialized, or the data being deserialized.
 
-Return the default set of field names that should be serialized for an object.
-If a serializer has no `Serializer` classes declared as fields, then this will
-be the set of fields names that will be serialized.
+Give an example, using an `ObjectSerializer` class, that serializes all the instance attributes on an object. 
 
-### get_flat_serializer(self, obj, field_name)
+* `.default_fields(self, serialize, obj=None, data=None, nested=False)`
 
-Return a default field instance for the given field, if the maximum depth has
-been reached, or recursion has occurred.
+---
 
-### get_nested_serializer(self, obj, field_name)
+# API Reference
 
-Return a default field instance for the given field, if the maximum depth has
-not yet been reached and recursion has not occurred.
+## Basic field types
 
-# Available serializers
+The base class for basic field types is `Field`.
 
+Classes:
 
-## Serializer
+* `BooleanField`
+* `CharField`
+* `DateField`
+* `DateTimeField`
+* `IntegerField`
+* `FloatField`
 
-The `Serializer` class may not be used directly, but may be overridden if you
-want to write a custom serializer.
+Methods:
 
-## ObjectSerializer
+* `.__init__(self, label=None, source=None, readonly=False)`
+* `.initialize(self, parent, model_field)`
+* `.to_native(self, value)`
+* `.from_native(self, value)`
+* `.field_to_native(self, obj, attr)`
+* `.field_from_native(self, data, field_name, into)`
+* `.attributes(self)`
 
-`ObjectSerializer` may be used to serialize arbitrary python objects.
-The default set of fields will be all the non-private instance attributes on
-each object.
+Attributes:
 
-`ObjectSerializer` supports all the options for Serializer, as well as
-these additional options.
+* `.root`
+* `.parent`
+* `.context`
+* `.model_field`
 
-### flat_field
+**TODO: Factor `model_field` out of initialize.**
 
-The class that should be used for serializing flat fields.  (ie. Once the
-specified `depth` has been reached.)  Default is `Field`.
+**TODO: Field options: `errors`, `blank`, etc…**
 
-### nested_field
+## Relational field types
 
-The class that should be used for serializing nested fields.  (ie Before the
-specified `depth` has been reached.)  Default is `None`, which indicates that
-the serializer should use another instance of it's own class.
+The base class for relational field types is `RelatedField`.
 
-## ModelSerializer
+Classes:
 
-`ModelSerializer` may be used to serialize Django model instances and querysets.
-The default set of fields will be all the model fields on each instance.
+* `PrimaryKeyField`
+* `NaturalKeyField`
 
-`ModelSerializer` supports all the options for Serializer, as well as
-these additional options.
+## Serializers
 
-### model_field
+Classes:
 
-The default field class that should be used for serializing non-related model
-fields.
+* `Serializer`
+* `ModelSerializer`
+* `FixtureSerializer`
 
-The default is `ModelField`.
+Methods:
 
-### non_model_field
+* `.__init__(self, context=None)`
+* `.serialize(self, format, object, context=None, fields=None, exclude=None, nested=None, **options)`
+* `.deserialize(self, format, stream, **options)`
+* `.render(self, data, stream, format, **options)`
+* `.parse(self, stream, format, **options)`
+* `.to_native(self, obj)`
+* `.from_native(self, data)`
+* `.default_fields(self, obj, data, nested)`
+* `.field_key(self, field_name)`
+* `.convert_object(self, obj)`
+* `.restore_fields(self, data)`
+* `.restore_object(self, attrs)`
 
-The default field class that should be used for serializing attributes on the
-model instance that are not model fields.  (For instance `get_absolute_url`.)
+Attributes:
 
-The default is `Field`.
+* `.opts`
+* `.fields`
 
-### related_field
+## Parsers & Renderers
 
-The default field class that should be used for serializing related model
-fields once the maximum depth has been reached, or recursion occurs.
+The base classes are `Parser` and `Renderer`.
 
-`related_field` can be applied to `OneToOneField`, `ForeignKey`,
-`ManyToManyField`, or any of their corrosponding reverse managers.
+* `XMLParser`/`XMLRenderer`
+* `YAMLParser`/`YAMLRenderer`
+* `JSONParser`/`JSONRenderer`
+* `CSVParser`/`CSVRenderer`
 
-The default is `PrimaryKeyRelatedField`.
+Methods:
 
-### nested_related_field
+* `.render(self, data, **options)`
+* `.parse(self, stream)`
 
-The default field class that should be used for serializing related model
-fields before the maximum depth has been reached, or recursion occurs.
-
-The default is `None`, which indicates that the serializer's own class should
-be reused for nested relations.
-
-### model_field_types
-
-A list of model field types that should be serialized by default.
-Available options are: 'pk', 'fields', 'many_to_many', 'local_fields',
-'local_many_to_many'.
-
-The default value is ('pk', 'fields', 'many_to_many').
-
-Note that the DumpDataSerializer uses a slightly different set of fields, in
-order to correctly deal with it's particular requirements.
-
-## DumpDataSerializer
-
-`DumpDataSerializer` may be used to serialize Django model instances and
-querysets into the existing `dumpdata` format.
-
-
-
-# Changelog
-
-### 0.5.0
-
-* Backwards compatible with existing serialization and passing Django's
-serializer tests.
-
-### 0.4.0
-
-* Dumpdata support for json and yaml.  xml nearly complete.
-
-### 0.3.2
-
-* Fix csv for python 2.6
-
-### 0.3.1
-
-* Fix import error when yaml not installed
-
-### 0.3.0
-
-* Initial support for CSV.
-
-### 0.2.0
-
-* First proper release. Properly working model relationships etc…
-
-### 0.1.0
-
-* Initial release
-
-# Possible extras…
-
-* Tests for non-numeric FKs, and FKs with a custom db implementation.
-* Tests for many2many FKs with a 'through' model.
-* Tests for proxy models.
-* Finish off xml dumpdata backward compat - many to many, natural keys, None & None on datetime fields all need tweaking.
-* Default xml renderer needs to include attributes, not just the dumpdata one.
-* JSON renderer needs a little tweaking to properly support streaming, rather than loading all items into memory.
-* `fields` option in serialize currently only supported by dumpdata serializer.  How to deal with this?  Should source='*' should have the effect of passing through `fields`, `include`, `exclude` to the child field, instead of applying to the parent serializer, so eg. DumpDataSerializer will recognise that those arguments apply to the `fields:` level, rather than referring to what should be included at the root level.
-* Consider character encoding issues.
-* `stack` needs to be reverted at start of new serialization.
-* Performance testing.
-* Indent option for xml.
-* I'd like to add `nested.field` syntax to the `include`, `exclude` and `field` argument, to allow quick declarations of nested representations.
-* Add `nested.field` syntax to the `source` argument, to allow quick declarations of serializing nested elements into a flat output structure.
-* Better `csv` format.  (Eg nested fields)
+---
 
 # License
 
@@ -668,4 +419,3 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 [1]: http://twitter.com/_tomchristie
-[2]: https://github.com/tomchristie/django-auto-api

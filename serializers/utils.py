@@ -5,8 +5,19 @@ from django.utils.timezone import is_aware
 import csv
 import datetime
 import decimal
+import inspect
 import types
 from django.utils import simplejson as json
+
+
+def is_simple_callable(obj):
+    """
+    True if the object is a callable that takes no arguments.
+    """
+    return (
+        (inspect.isfunction(obj) and not inspect.getargspec(obj)[0]) or
+        (inspect.ismethod(obj) and len(inspect.getargspec(obj)[0]) <= 1)
+    )
 
 
 class DictWithMetadata(dict):

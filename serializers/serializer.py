@@ -1,9 +1,8 @@
 from decimal import Decimal
-from django.db.models.fields import FieldDoesNotExist
+from django.core.serializers.base import DeserializedObject
 from django.utils.datastructures import SortedDict
 import copy
 import datetime
-import inspect
 import types
 from serializers.renderers import (
     JSONRenderer,
@@ -11,31 +10,38 @@ from serializers.renderers import (
     XMLRenderer,
     HTMLRenderer,
     CSVRenderer,
-    DumpDataXMLRenderer
+)
+from serializers.parsers import (
+    JSONParser,
 )
 from serializers.fields import *
-from serializers.utils import DictWithMetadata, SortedDictWithMetadata
+from serializers.utils import SortedDictWithMetadata, is_simple_callable
 from StringIO import StringIO
+from io import BytesIO
 
 
-def _remove_items(seq, exclude):
+class RecursionOccured(BaseException):
+    pass
+
+
+def _is_protected_type(obj):
     """
-    Remove duplicates and items in 'exclude' from list (preserving order).
+    True if the object is a native datatype that does not need to
+    be serialized further.
     """
-    seen = set()
-    result = []
-    for item in seq:
-        if (item in seen) or (item in exclude):
-            continue
-        seen.add(item)
-        result.append(item)
-    return result
+    return isinstance(obj, (
+        types.NoneType,
+       int, long,
+       datetime.datetime, datetime.date, datetime.time,
+       float, Decimal,
+       basestring)
+    )
 
 
 def _get_declared_fields(bases, attrs):
     """
     Create a list of serializer field instances from the passed in 'attrs',
-    plus any similar fields on the base classes (in 'bases').
+    plus any fields on the base classes (in 'bases').
 
     Note that all fields from the base classes are used.
     """
@@ -54,37 +60,27 @@ def _get_declared_fields(bases, attrs):
     return SortedDict(fields)
 
 
-def _get_option(name, kwargs, meta, default):
-    return kwargs.get(name, getattr(meta, name, default))
-
-
 class SerializerOptions(object):
     def __init__(self, meta, **kwargs):
-        self.format = _get_option('format', kwargs, meta, None)
-        self.depth = _get_option('depth', kwargs, meta, None)
-        self.include = _get_option('include', kwargs, meta, ())
-        self.exclude = _get_option('exclude', kwargs, meta, ())
-        self.fields = _get_option('fields', kwargs, meta, ())
-        self.include_default_fields = _get_option(
-            'include_default_fields', kwargs, meta, False
-        )
-
-
-class ObjectSerializerOptions(SerializerOptions):
-    def __init__(self, meta, **kwargs):
-        super(ObjectSerializerOptions, self).__init__(meta, **kwargs)
-        self.flat_field = _get_option('flat_field', kwargs, meta, Field)
-        self.nested_field = _get_option('nested_field', kwargs, meta, None)
+        self.nested = getattr(meta, 'nested', False)
+        self.fields = getattr(meta, 'fields', ())
+        self.exclude = getattr(meta, 'exclude', ())
+        self.renderer_classes = getattr(meta, 'renderer_classes', {
+            'xml': XMLRenderer,
+            'json': JSONRenderer,
+            'yaml': YAMLRenderer,
+            'csv': CSVRenderer,
+            'html': HTMLRenderer,
+        })
+        self.parser_classes = getattr(meta, 'parser_classes', {
+            'json': JSONParser
+        })
 
 
 class ModelSerializerOptions(SerializerOptions):
     def __init__(self, meta, **kwargs):
         super(ModelSerializerOptions, self).__init__(meta, **kwargs)
-        self.model_field_types = _get_option('model_field_types', kwargs, meta, None)
-        self.model_field = _get_option('model_field', kwargs, meta, ModelField)
-        self.non_model_field = _get_option('non_model_field', kwargs, meta, Field)
-        self.related_field = _get_option('related_field', kwargs, meta, PrimaryKeyRelatedField)
-        self.nested_related_field = _get_option('nested_related_field', kwargs, meta, None)
+        self.model = getattr(meta, 'model', None)
 
 
 class SerializerMetaclass(type):
@@ -97,93 +93,91 @@ class BaseSerializer(Field):
     class Meta(object):
         pass
 
-    renderer_classes = {
-        'xml': XMLRenderer,
-        'json': JSONRenderer,
-        'yaml': YAMLRenderer,
-        'csv': CSVRenderer,
-        'html': HTMLRenderer,
-    }
-
     _options_class = SerializerOptions
-    _use_sorted_dict = True
+    _dict_class = SortedDictWithMetadata  # Set to False for backwards compatability with unsorted implementations.
     internal_use_only = False  # Backwards compatability
 
-    def __init__(self, **kwargs):
-        source = kwargs.get('source', None)
-        label = kwargs.get('label', None)
-        convert = kwargs.get('convert', None)
-        super(BaseSerializer, self).__init__(source=source, label=label, convert=convert)
-        self.kwargs = kwargs
+    def getvalue(self):
+        return self.value  # Backwards compatability with serialization API.
+
+    def __init__(self, label=None, source=None, readonly=False, **kwargs):
+        super(BaseSerializer, self).__init__(label, source, readonly)
+        self.fields = copy.deepcopy(self.base_fields)
         self.opts = self._options_class(self.Meta, **kwargs)
-        self.fields = SortedDict((key, copy.copy(field))
-                           for key, field in self.base_fields.items())
+        self.parent = None
+        self.root = None
 
-    def get_flat_serializer(self, obj, field_name):
-        raise NotImplementedError()
+    #####
+    # Methods to determine which fields to use when (de)serializing objects.
 
-    def get_nested_serializer(self, obj, field_name):
-        raise NotImplementedError()
+    def default_fields(self, serialize, obj=None, data=None, nested=False):
+        """
+        Return the complete set of default fields for the object, as a dict.
+        """
+        return {}
 
-    def get_default_field_names(self, obj):
-        raise NotImplementedError()
+    def get_fields(self, serialize, obj=None, data=None, nested=False):
+        """
+        Returns the complete set of fields for the object as a dict.
 
-    def _is_protected_type(self, obj):
+        This will be the set of any explicitly declared fields,
+        plus the set of fields returned by get_default_fields().
         """
-        True if the object is a native datatype that does not need to
-        be serialized further.
-        """
-        return isinstance(obj, (
-            types.NoneType,
-            int, long,
-            datetime.datetime, datetime.date, datetime.time,
-            float, Decimal,
-            basestring)
-        )
+        ret = SortedDict()
 
-    def _is_simple_callable(self, obj):
-        """
-        True if the object is a callable that takes no arguments.
-        """
-        return (
-            (inspect.isfunction(obj) and not inspect.getargspec(obj)[0]) or
-            (inspect.ismethod(obj) and len(inspect.getargspec(obj)[0]) <= 1)
-        )
+        # Get the explicitly declared fields
+        for key, field in self.fields.items():
+            ret[key] = field
+            # Determine if the declared field corrosponds to a model field.
+            try:
+                if key == 'pk':
+                    model_field = obj._meta.pk
+                else:
+                    model_field = obj._meta.get_field_by_name(key)[0]
+            except:
+                model_field = None
+            # Set up the field
+            field.initialize(parent=self, model_field=model_field)
 
-    def _get_field_names(self, obj):
+        # Add in the default fields
+        fields = self.default_fields(serialize, obj, data, nested)
+        for key, val in fields.items():
+            if key not in ret:
+                ret[key] = val
+
+        # If 'fields' is specified, use those fields, in that order.
+        if self.opts.fields:
+            new = SortedDict()
+            for key in self.opts.fields:
+                new[key] = ret[key]
+            ret = new
+
+        # Remove anything in 'exclude'
+        if self.opts.exclude:
+            for key in self.opts.exclude:
+                ret.pop(key, None)
+
+        return ret
+
+    #####
+    # Field methods - used when the serializer class is itself used as a field.
+
+    def initialize(self, parent, model_field=None):
         """
-        Given an object, return the set of field names to serialize.
+        Same behaviour as usual Field, except that we need to keep track
+        of state so that we can deal with handling maximum depth and recursion.
         """
-        opts = self.opts
-        if opts.fields:
-            return opts.fields
+        super(BaseSerializer, self).initialize(parent, model_field)
+        self.stack = parent.stack[:]
+        if parent.opts.nested and not isinstance(parent.opts.nested, bool):
+            self.opts.nested = parent.opts.nested - 1
         else:
-            fields = self.fields.keys()
-            if opts.include_default_fields or not self.fields:
-                fields += self.get_default_field_names(obj)
-            fields += list(opts.include)
-            return _remove_items(fields, opts.exclude)
+            self.opts.nested = parent.opts.nested
 
-    def _get_field_serializer(self, obj, field_name):
-        """
-        Given an object and a field name, return the serializer instance that
-        should be used to serialize that field.
-        """
-        try:
-            return self.fields[field_name]
-        except KeyError:
-            return self._get_default_field_serializer(obj, field_name)
+    #####
+    # Methods to convert or revert from objects <--> primative representations.
 
-    def _get_default_field_serializer(self, obj, field_name):
-        """
-        If a field does not have an explicitly declared serializer, return the
-        default serializer instance that should be used for that field.
-        """
-        if self.opts.depth is not None and self.opts.depth <= 0:
-            return self.get_flat_serializer(obj, field_name)
-        return self.get_nested_serializer(obj, field_name)
-
-    def get_field_key(self, obj, field_name, field):
+    def convert_field_key(self, obj, field_name, field):
         """
         Return the key that should be used for a given field.
         """
@@ -191,72 +185,108 @@ class BaseSerializer(Field):
             return field.label
         return field_name
 
-    def _convert_field(self, obj, field_name, parent):
-        """
-        Same behaviour as usual Field, except that we need to keep track
-        of state so that we can deal with handling maximum depth and recursion.
-        """
-        self.parent = parent
-        self.root = parent.root or parent
-        self.orig_obj = obj
-        self.orig_field_name = field_name
-
-        self.stack = parent.stack[:]
-        if parent.opts.depth is not None:
-            self.opts.depth = parent.opts.depth - 1
-
-        return super(BaseSerializer, self)._convert_field(obj, field_name, parent)
-
     def convert_object(self, obj):
-        if self.source != '*' and obj in self.stack:
-            serializer = self.get_flat_serializer(self.orig_obj,
-                                                  self.orig_field_name)
-            return serializer._convert_field(self.orig_obj,
-                                             self.orig_field_name,
-                                             self)
+        """
+        Core of serialization.
+        Convert an object into a dictionary of serialized field values.
+        """
+        if obj in self.stack and not self.source == '*':
+            raise RecursionOccured()
         self.stack.append(obj)
 
-        if self._use_sorted_dict:
-            ret = SortedDictWithMetadata()
-        else:
-            ret = DictWithMetadata()
+        ret = self._dict_class()
 
-        for field_name in self._get_field_names(obj):
-            field = self._get_field_serializer(obj, field_name)
-            key = self.get_field_key(obj, field_name, field)
-            value = field._convert_field(obj, field_name, self)
+        fields = self.get_fields(serialize=True, obj=obj, nested=self.opts.nested)
+        for field_name, field in fields.items():
+            key = self.convert_field_key(obj, field_name, field)
+            try:
+                value = field.field_to_native(obj, field_name)
+            except RecursionOccured:
+                field = self.get_fields(serialize=True, obj=obj, nested=False)[field_name]
+                value = field.field_to_native(obj, field_name)
             ret.set_with_metadata(key, value, field)
         return ret
 
-    def _convert_iterable(self, obj):
-        for item in obj:
-            yield self.convert(item)
+    def restore_fields(self, data):
+        """
+        Core of deserialization, together with `restore_object`.
+        Converts a dictionary of data into a dictionary of deserialized fields.
+        """
+        fields = self.get_fields(serialize=False, data=data, nested=self.opts.nested)
+        reverted_data = {}
+        for field_name, field in fields.items():
+            field.field_from_native(data, field_name, reverted_data)
+        return reverted_data
 
-    def convert(self, obj):
-        if self._is_protected_type(obj):
+    def restore_object(self, attrs, instance=None):
+        """
+        Deserialize a dictionary of attributes into an object instance.
+        You should override this method to control how deserialized objects
+        are instantiated.
+        """
+        if instance is not None:
+            instance.update(attrs)
+            return instance
+        return attrs
+
+    def to_native(self, obj):
+        """
+        Serialize objects -> primatives.
+        """
+        if _is_protected_type(obj):
             return obj
-        elif self._is_simple_callable(obj):
-            return self.convert(obj())
+        elif is_simple_callable(obj):
+            return self.to_native(obj())
         elif isinstance(obj, dict):
-            return dict([(key, self.convert(val))
+            return dict([(key, self.to_native(val))
                          for (key, val) in obj.items()])
         elif hasattr(obj, '__iter__'):
-            return self._convert_iterable(obj)
+            return (self.to_native(item) for item in obj)
         return self.convert_object(obj)
 
-    def render(self, data, stream, format, **opts):
-        renderer = self.renderer_classes[format]()
-        return renderer.render(data, stream, **opts)
+    def from_native(self, data):
+        """
+        Deserialize primatives -> objects.
+        """
+        if _is_protected_type(data):
+            return data
+        elif hasattr(data, '__iter__') and not isinstance(data, dict):
+            return (self.from_native(item) for item in data)
+        else:
+            attrs = self.restore_fields(data)
+            return self.restore_object(attrs, instance=getattr(self, 'instance', None))
 
-    def serialize(self, obj, format=None, **opts):
-        self.root = None
+    def render(self, data, stream, format, **options):
+        """
+        Render primatives -> bytestream for serialization.
+        """
+        renderer = self.opts.renderer_classes[format]()
+        return renderer.render(data, stream, **options)
+
+    def parse(self, stream, format, **options):
+        """
+        Parse bytestream -> primatives for deserialization.
+        """
+        parser = self.opts.parser_classes[format]()
+        return parser.parse(stream, **options)
+
+    def serialize(self, format, obj, context=None, **options):
+        """
+        Perform serialization of objects into bytestream.
+        First converts the objects into primatives,
+        then renders primative types to bytestream.
+        """
         self.stack = []
+        self.context = context or {}
 
-        data = self.convert(obj)
-        format = format or self.opts.format
-        if format:
-            stream = opts.pop('stream', StringIO())
-            self.render(data, stream, format, **opts)
+        for keyword in ('fields', 'exclude', 'nested'):
+            if keyword in options:
+                setattr(self.opts, keyword, options.pop(keyword))
+
+        data = self.to_native(obj)
+        if format != 'python':
+            stream = options.pop('stream', StringIO())
+            self.render(data, stream, format, **options)
             if hasattr(stream, 'getvalue'):
                 self.value = stream.getvalue()
             else:
@@ -265,8 +295,25 @@ class BaseSerializer(Field):
             self.value = data
         return self.value
 
-    def getvalue(self):
-        return self.value
+    def deserialize(self, format, stream_or_string, instance=None, context=None, **options):
+        """
+        Perform deserialization of bytestream into objects.
+        First parses the bytestream into primative types,
+        then converts primative types into objects.
+        """
+        self.stack = []
+        self.context = context or {}
+        self.instance = instance
+
+        if format != 'python':
+            if isinstance(stream_or_string, basestring):
+                stream = BytesIO(stream_or_string)
+            else:
+                stream = stream_or_string
+            data = self.parse(stream, format, **options)
+        else:
+            data = stream_or_string
+        return self.from_native(data)
 
 
 class Serializer(BaseSerializer):
@@ -274,22 +321,26 @@ class Serializer(BaseSerializer):
 
 
 class ObjectSerializer(Serializer):
-    _options_class = ObjectSerializerOptions
-
-    def get_default_field_names(self, obj):
+    def default_fields(self, serialize, obj=None, data=None, nested=False):
         """
-        Given an object, return the default set of field names to serialize.
-        This is what would be serialized if no explicit `Serializer` fields
-        are declared.
+        Given an object, return the default set of fields to serialize.
+
+        For ObjectSerializer this should be the set of all the non-private
+        object attributes.
         """
-        return sorted([key for key in obj.__dict__.keys()
-                       if not(key.startswith('_'))])
+        if not serialize:
+            raise Exception('ObjectSerializer does not support deserialization')
 
-    def get_flat_serializer(self, obj, field_name):
-        return self.opts.flat_field()
-
-    def get_nested_serializer(self, obj, field_name):
-        return (self.opts.nested_field or self.__class__)()
+        ret = SortedDict()
+        attrs = [key for key in obj.__dict__.keys() if not(key.startswith('_'))]
+        for attr in sorted(attrs):
+            if nested:
+                field = self.__class__()
+            else:
+                field = Field()
+            field.initialize(parent=self)
+            ret[attr] = field
+        return ret
 
 
 class ModelSerializer(RelatedField, Serializer):
@@ -298,114 +349,59 @@ class ModelSerializer(RelatedField, Serializer):
     """
     _options_class = ModelSerializerOptions
 
-    class Meta:
-        related_field = PrimaryKeyRelatedField
-        model_field_types = ('pk', 'fields', 'many_to_many')
-
-    def get_default_field_names(self, obj):
+    def default_fields(self, serialize, obj=None, data=None, nested=False):
         """
-        We subclass this method to return the set of all field names defined
-        on the model instance, rather than the default behaviour of returning
-        all non-private attributes on the object.
+        Return all the fields that should be serialized for the model.
         """
-        fields = []
-        concrete_model = obj._meta.concrete_model
-
-        for field_type in self.opts.model_field_types:
-            if field_type == 'pk':
-                # Add pk field, descending into inherited pk if needed
-                pk_field = concrete_model._meta.pk
-                while pk_field.rel:
-                    pk_field = pk_field.rel.to._meta.pk
-                fields.append(pk_field)
-            elif field_type == 'many_to_many':
-                # We're explicitly dropping 'through' m2m relations here
-                # for the sake of dumpdata compatability.
-                # Need to think about what we actually want to do.
-                fields.extend([
-                    field for field in
-                    getattr(concrete_model._meta, field_type)
-                    if field.serialize and field.rel.through._meta.auto_created
-                ])
-            else:
-                # Add any non-pk field types
-                fields.extend([
-                    field for field in
-                    getattr(concrete_model._meta, field_type)
-                    if field.serialize
-                ])
-        return [field.name for field in fields]
-
-    def get_flat_serializer(self, obj, field_name):
-        """
-        We subclass this method to switch between `related_field` and
-        `flat_field` depending on the field type.
-        """
-        try:
-            field = obj._meta.get_field_by_name(field_name)[0]
-            if isinstance(field, RelatedObject) or field.rel:
-                return self.opts.related_field()
-            return self.opts.model_field()
-        except FieldDoesNotExist:
-            return self.opts.non_model_field()
-
-    def get_nested_serializer(self, obj, field_name):
-        """
-        We subclass this method to switch between `related_field` and
-        `flat_field` depending on the field type.
-        """
-        try:
-            field = obj._meta.get_field_by_name(field_name)[0]
-            if isinstance(field, RelatedObject) or field.rel:
-                return (self.opts.nested_related_field or self.__class__)()
-            return self.opts.model_field()
-        except FieldDoesNotExist:
-            return self.opts.non_model_field()
-
-
-class DumpDataFields(ModelSerializer):
-    _use_sorted_dict = False
-
-    class Meta:
-        depth = 0
-        model_field_types = ('local_fields', 'many_to_many')
-
-
-class DumpDataSerializer(ModelSerializer):
-    """
-    A serializer that is intended to produce dumpdata formatted structures.
-    """
-    _use_sorted_dict = False
-
-    renderer_classes = {
-        'xml': DumpDataXMLRenderer,
-        'json': JSONRenderer,
-        'yaml': YAMLRenderer,
-    }
-
-    pk = Field()
-    model = ModelNameField()
-    # fields = DumpDataFields(source='*') - Actually set in serialize
-
-    def serialize(self, obj, format=None, **opts):
-        if opts.get('use_natural_keys', None):
-            self.fields['fields'] = DumpDataFields(source='*', related_field=NaturalKeyRelatedField, fields=opts.get('fields', None))
+        if serialize:
+            cls = obj.__class__
         else:
-            self.fields['fields'] = DumpDataFields(source='*', fields=opts.get('fields', None))
+            cls = self.opts.model
 
-        return super(DumpDataSerializer, self).serialize(obj, format, **opts)
+        opts = cls._meta.concrete_model._meta
+        pk_field = opts.pk
+        while pk_field.rel:
+            pk_field = pk_field.rel.to._meta.pk
+        fields = [pk_field]
+        fields += [field for field in opts.fields if field.serialize]
+        fields += [field for field in opts.many_to_many if field.serialize]
 
+        ret = SortedDict()
+        for model_field in fields:
+            if model_field.rel and nested:
+                field = self.get_nested_field(model_field)
+            elif model_field.rel:
+                field = self.get_related_field(model_field)
+            else:
+                field = self.get_field(model_field)
+            field.initialize(parent=self, model_field=model_field)
+            ret[model_field.name] = field
+        return ret
 
-class JSONDumpDataSerializer(DumpDataSerializer):
-    class Meta(DumpDataSerializer.Meta):
-        format = 'json'
+    def get_nested_field(self, model_field):
+        """
+        Creates a default instance of a nested relational field.
+        """
+        return ModelSerializer()
 
+    def get_related_field(self, model_field):
+        """
+        Creates a default instance of a flat relational field.
+        """
+        return PrimaryKeyRelatedField()
 
-class YAMLDumpDataSerializer(DumpDataSerializer):
-    class Meta(DumpDataSerializer.Meta):
-        format = 'yaml'
+    def get_field(self, model_field):
+        """
+        Creates a default instance of a basic field.
+        """
+        return Field()
 
-
-class XMLDumpDataSerializer(DumpDataSerializer):
-    class Meta(DumpDataSerializer.Meta):
-        format = 'xml'
+    def restore_object(self, attrs, instance=None):
+        """
+        Restore the model instance.
+        """
+        m2m_data = {}
+        for field in self.opts.model._meta.many_to_many:
+            if field.name in attrs:
+                m2m_data[field.name] = attrs.pop(field.name)
+        return DeserializedObject(self.opts.model(**attrs), m2m_data)

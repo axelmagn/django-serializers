@@ -3,9 +3,7 @@ from django.utils import simplejson as json
 from django.utils.encoding import smart_unicode
 from django.utils.html import urlize
 from django.utils.xmlutils import SimplerXMLGenerator
-from serializers.fields import NaturalKeyRelatedField
 from serializers.utils import SafeDumper, DictWriter, DjangoJSONEncoder
-import StringIO
 try:
     import yaml
 except ImportError:
@@ -131,7 +129,7 @@ class DumpDataXMLRenderer(BaseRenderer):
 
         # Due to implmentation details, the existing xml dumpdata format
         # renders ordered fields, whilst json and yaml render unordered
-        # fields (ordering determined by `dict`)
+        # fields (ordering determined by python's `dict` implementation)
         # To maintain byte-for-byte backwards compatability,
         # we'll deal with that now.
         sorted_items = sorted(fields.items_with_metadata(),
@@ -142,16 +140,16 @@ class DumpDataXMLRenderer(BaseRenderer):
             attrs.update(field.attributes())
             xml.startElement('field', attrs)
 
-            if value is not None and isinstance(field, NaturalKeyRelatedField):
+            if value is not None and getattr(field, 'is_natural_key', False):
                 self.handle_natural_key(xml, value)
             elif attrs.get('rel', None) == 'ManyToManyRel':
                 self.handle_many_to_many(xml, value)
             elif isinstance(value, (datetime.datetime, datetime.date, datetime.time)):
                 self.handle_datetimes(xml, value)
-            elif value is not None:
-                self.handle_value(xml, value)
-            else:
+            elif value is None:
                 self.handle_none(xml)
+            else:
+                self.handle_value(xml, value)
 
             xml.endElement('field')
         xml.endElement('object')
@@ -176,7 +174,7 @@ class DumpDataXMLRenderer(BaseRenderer):
 
 class CSVRenderer(BaseRenderer):
     def render(self, obj, stream, **opts):
-        if not hasattr(obj, '__iter__'):
+        if isinstance(obj, dict) or not hasattr(obj, '__iter__'):
             obj = [obj]
         writer = None
         for item in obj:
