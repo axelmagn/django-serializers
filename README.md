@@ -1,5 +1,3 @@
-**WARNING: The documentation in the develop branch is not totally representative of the codebase as it currently stands!**
-
 # Django Serializers
 
 **Customizable Serialization for Django.**
@@ -16,10 +14,9 @@ Features:
 * Models and querysets can be serialized using the `ModelSerializer` class.
 * Supports backwards compatible fixture serialization, using the `FixtureSerializer` class.
 * Supports flat or nested serialization, and handles depth and recursive relationships.
-* Currently supports 'json', 'yaml', 'xml', 'csv'.
+* Supports `json`, `yaml`, `xml` and `csv` formats out of the box.
 * Relationships can be serialized to primary keys, natural keys, or custom implementations.
-* Comprehensive test suite.
-* Passes Django's existing serialization test suite.
+* Includes a comprehensive test suite and passes Django's existing serialization tests.
 
 For an example of using `django-serializers` to create Web APIs,
 please see [django-auto-api][2].
@@ -419,3 +416,4 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 [1]: http://twitter.com/_tomchristie
+[2]: http://github.com/tomchristie/django-auto-api
