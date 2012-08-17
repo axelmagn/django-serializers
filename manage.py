@@ -2,8 +2,13 @@
 import os
 import sys
 
+
 if __name__ == "__main__":
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "testsettings")
+    if sys.argv[1] == 'testcompat':
+        sys.argv[1] = 'test'
+        os.environ.setdefault("DJANGO_SETTINGS_MODULE", "compatsettings")
+    else:
+        os.environ.setdefault("DJANGO_SETTINGS_MODULE", "testsettings")
 
     from django.core.management import execute_from_command_line
 

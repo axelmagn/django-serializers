@@ -14,7 +14,7 @@ url = 'http://github.com/tomchristie/django-serializers'
 author = 'Tom Christie'
 author_email = 'tom@tomchristie.com'
 license = 'BSD'
-install_requires = []
+install_requires = ['pyyaml']
 
 
 def get_version(package):

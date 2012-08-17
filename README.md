@@ -44,6 +44,10 @@ the provided `manage.py` file:
 
     manage.py test
 
+You can also run `django-serializers` against the existing Django serialization tests:
+
+    manage.py testcompat
+
 # Working with Serializers
 
 ## Serializing objects
