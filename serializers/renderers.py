@@ -118,7 +118,7 @@ class DumpDataXMLRenderer(BaseRenderer):
     def model_to_xml(self, xml, data):
         pk = data['pk']
         model = data['model']
-        fields = data['fields']
+        fields_data = data['fields']
 
         attrs = {}
         if pk is not None:
@@ -127,20 +127,26 @@ class DumpDataXMLRenderer(BaseRenderer):
 
         xml.startElement('object', attrs)
 
+        # For each item in fields get it's key, value and serializer field
+        key_val_field = [
+            (key, val, fields_data.fields[key])
+            for key, val in fields_data.items()
+        ]
+
         # Due to implmentation details, the existing xml dumpdata format
         # renders ordered fields, whilst json and yaml render unordered
         # fields (ordering determined by python's `dict` implementation)
         # To maintain byte-for-byte backwards compatability,
         # we'll deal with that now.
-        sorted_items = sorted(fields.items_with_metadata(),
-                              key=lambda x: x[2].creation_counter)
+        key_val_field = sorted(key_val_field,
+                               key=lambda x: x[2].creation_counter)
 
-        for key, value, field in sorted_items:
+        for key, value, serializer_field in key_val_field:
             attrs = {'name': key}
-            attrs.update(field.attributes())
+            attrs.update(serializer_field.attributes())
             xml.startElement('field', attrs)
 
-            if value is not None and getattr(field, 'is_natural_key', False):
+            if value is not None and getattr(serializer_field, 'is_natural_key', False):
                 self.handle_natural_key(xml, value)
             elif attrs.get('rel', None) == 'ManyToManyRel':
                 self.handle_many_to_many(xml, value)

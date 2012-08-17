@@ -186,6 +186,7 @@ class BaseSerializer(Field):
         self.stack.append(obj)
 
         ret = self._dict_class()
+        ret.fields = {}
 
         fields = self.get_fields(serialize=True, obj=obj, nested=self.opts.nested)
         for field_name, field in fields.items():
@@ -195,7 +196,8 @@ class BaseSerializer(Field):
             except RecursionOccured:
                 field = self.get_fields(serialize=True, obj=obj, nested=False)[field_name]
                 value = field.field_to_native(obj, field_name)
-            ret.set_with_metadata(key, value, field)
+            ret[key] = value
+            ret.fields[key] = field
         return ret
 
     def restore_fields(self, data):
