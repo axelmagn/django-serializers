@@ -4,8 +4,34 @@ from django.core import serializers
 from django.db import models
 from django.test import TestCase
 from django.utils.datastructures import SortedDict
-from serializers import Serializer, ObjectSerializer, ModelSerializer, FixtureSerializer
+from serializers import Serializer, ModelSerializer, FixtureSerializer
 from serializers.fields import Field, NaturalKeyRelatedField, PrimaryKeyRelatedField
+
+# ObjectSerializer has been removed from serializers
+# leaving it in the tests for the moment for more coverage.
+
+
+class ObjectSerializer(Serializer):
+    def default_fields(self, serialize, obj=None, data=None, nested=False):
+        """
+        Given an object, return the default set of fields to serialize.
+
+        For ObjectSerializer this should be the set of all the non-private
+        object attributes.
+        """
+        if not serialize:
+            raise Exception('ObjectSerializer does not support deserialization')
+
+        ret = SortedDict()
+        attrs = [key for key in obj.__dict__.keys() if not(key.startswith('_'))]
+        for attr in sorted(attrs):
+            if nested:
+                field = self.__class__()
+            else:
+                field = Field()
+            field.initialize(parent=self)
+            ret[attr] = field
+        return ret
 
 
 class NestedObjectSerializer(ObjectSerializer):
@@ -762,7 +788,6 @@ class TestNaturalKey(SerializationTestCase):
     Test one-to-one field relationship on a model.
     """
     def setUp(self):
-        self.dumpdata = FixtureSerializer()
         joe = PetOwner.objects.create(
             first_name='joe',
             last_name='adams',
@@ -783,7 +808,7 @@ class TestNaturalKey(SerializationTestCase):
         'use_natural_keys' behaviour.
         """
         self.assertEquals(
-            self.dumpdata.serialize('json', Pet.objects.all(), use_natural_keys=True),
+            FixtureSerializer().serialize('json', Pet.objects.all(), use_natural_keys=True),
             serializers.serialize('json', Pet.objects.all(), use_natural_keys=True)
         )
 
@@ -793,7 +818,7 @@ class TestNaturalKey(SerializationTestCase):
         'use_natural_keys' behaviour.
         """
         self.assertEquals(
-            self.dumpdata.serialize('yaml', Pet.objects.all(), use_natural_keys=True),
+            FixtureSerializer().serialize('yaml', Pet.objects.all(), use_natural_keys=True),
             serializers.serialize('yaml', Pet.objects.all(), use_natural_keys=True)
         )
 
@@ -803,7 +828,7 @@ class TestNaturalKey(SerializationTestCase):
         'use_natural_keys' behaviour.
         """
         self.assertEquals(
-            self.dumpdata.serialize('xml', Pet.objects.all(), use_natural_keys=True),
+            FixtureSerializer().serialize('xml', Pet.objects.all(), use_natural_keys=True),
             serializers.serialize('xml', Pet.objects.all(), use_natural_keys=True)
         )
 
@@ -816,8 +841,6 @@ class TestNaturalKey(SerializationTestCase):
             def get_related_field(self, model_field):
                 return NaturalKeyRelatedField()
 
-        serializer = NaturalKeyModelSerializer()
-
         expected = [{
             "owner": (u"joe", u"adams"),  # NK, not PK
             "id": 1,
@@ -828,7 +851,7 @@ class TestNaturalKey(SerializationTestCase):
             "name": u"frogger"
         }]
         self.assertEquals(
-            serializer.serialize('python', Pet.objects.all()),
+            NaturalKeyModelSerializer().serialize('python', Pet.objects.all()),
             expected
         )
 
@@ -858,7 +881,7 @@ class TestNaturalKey(SerializationTestCase):
     #     self.assertTrue(deserialized_eq(lhs, rhs))
 
     def test_dumpdata_deserialize(self):
-        lhs = get_deserialized(Pet.objects.all(), serializer=self.dumpdata, use_natural_keys=True)
+        lhs = get_deserialized(Pet.objects.all(), serializer=FixtureSerializer(), use_natural_keys=True)
         rhs = get_deserialized(Pet.objects.all(), use_natural_keys=True)
         self.assertTrue(deserialized_eq(lhs, rhs))
 

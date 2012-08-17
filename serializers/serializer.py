@@ -60,7 +60,16 @@ def _get_declared_fields(bases, attrs):
     return SortedDict(fields)
 
 
+class SerializerMetaclass(type):
+    def __new__(cls, name, bases, attrs):
+        attrs['base_fields'] = _get_declared_fields(bases, attrs)
+        return super(SerializerMetaclass, cls).__new__(cls, name, bases, attrs)
+
+
 class SerializerOptions(object):
+    """
+    Meta class options for ModelSerializer
+    """
     def __init__(self, meta, **kwargs):
         self.nested = getattr(meta, 'nested', False)
         self.fields = getattr(meta, 'fields', ())
@@ -77,28 +86,12 @@ class SerializerOptions(object):
         })
 
 
-class ModelSerializerOptions(SerializerOptions):
-    def __init__(self, meta, **kwargs):
-        super(ModelSerializerOptions, self).__init__(meta, **kwargs)
-        self.model = getattr(meta, 'model', None)
-
-
-class SerializerMetaclass(type):
-    def __new__(cls, name, bases, attrs):
-        attrs['base_fields'] = _get_declared_fields(bases, attrs)
-        return super(SerializerMetaclass, cls).__new__(cls, name, bases, attrs)
-
-
 class BaseSerializer(Field):
     class Meta(object):
         pass
 
     _options_class = SerializerOptions
-    _dict_class = SortedDictWithMetadata  # Set to False for backwards compatability with unsorted implementations.
-    internal_use_only = False  # Backwards compatability
-
-    def getvalue(self):
-        return self.value  # Backwards compatability with serialization API.
+    _dict_class = SortedDictWithMetadata  # Set to unsorted dict for backwards compatability with unsorted implementations.
 
     def __init__(self, label=None, source=None, readonly=False, **kwargs):
         super(BaseSerializer, self).__init__(label, source, readonly)
@@ -316,27 +309,13 @@ class Serializer(BaseSerializer):
     __metaclass__ = SerializerMetaclass
 
 
-class ObjectSerializer(Serializer):
-    def default_fields(self, serialize, obj=None, data=None, nested=False):
-        """
-        Given an object, return the default set of fields to serialize.
-
-        For ObjectSerializer this should be the set of all the non-private
-        object attributes.
-        """
-        if not serialize:
-            raise Exception('ObjectSerializer does not support deserialization')
-
-        ret = SortedDict()
-        attrs = [key for key in obj.__dict__.keys() if not(key.startswith('_'))]
-        for attr in sorted(attrs):
-            if nested:
-                field = self.__class__()
-            else:
-                field = Field()
-            field.initialize(parent=self)
-            ret[attr] = field
-        return ret
+class ModelSerializerOptions(SerializerOptions):
+    """
+    Meta class options for ModelSerializer
+    """
+    def __init__(self, meta, **kwargs):
+        super(ModelSerializerOptions, self).__init__(meta, **kwargs)
+        self.model = getattr(meta, 'model', None)
 
 
 class ModelSerializer(RelatedField, Serializer):

@@ -1,6 +1,5 @@
 from serializers.serializer import (
     Serializer,
-    ObjectSerializer,
     ModelSerializer,
 )
 from serializers.fields import (
