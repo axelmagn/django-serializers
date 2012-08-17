@@ -70,7 +70,7 @@ class SerializerOptions(object):
     """
     Meta class options for ModelSerializer
     """
-    def __init__(self, meta, **kwargs):
+    def __init__(self, meta):
         self.nested = getattr(meta, 'nested', False)
         self.fields = getattr(meta, 'fields', ())
         self.exclude = getattr(meta, 'exclude', ())
@@ -93,10 +93,10 @@ class BaseSerializer(Field):
     _options_class = SerializerOptions
     _dict_class = SortedDictWithMetadata  # Set to unsorted dict for backwards compatability with unsorted implementations.
 
-    def __init__(self, label=None, source=None, readonly=False, **kwargs):
+    def __init__(self, label=None, source=None, readonly=False):
         super(BaseSerializer, self).__init__(label, source, readonly)
         self.fields = copy.deepcopy(self.base_fields)
-        self.opts = self._options_class(self.Meta, **kwargs)
+        self.opts = self._options_class(self.Meta)
         self.parent = None
         self.root = None
 
@@ -313,8 +313,8 @@ class ModelSerializerOptions(SerializerOptions):
     """
     Meta class options for ModelSerializer
     """
-    def __init__(self, meta, **kwargs):
-        super(ModelSerializerOptions, self).__init__(meta, **kwargs)
+    def __init__(self, meta):
+        super(ModelSerializerOptions, self).__init__(meta)
         self.model = getattr(meta, 'model', None)
 
 
