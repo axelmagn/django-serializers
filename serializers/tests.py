@@ -8,6 +8,16 @@ from serializers import Serializer, ObjectSerializer, ModelSerializer, FixtureSe
 from serializers.fields import Field, NaturalKeyRelatedField, PrimaryKeyRelatedField
 
 
+class NestedObjectSerializer(ObjectSerializer):
+    class Meta:
+        nested = True
+
+
+class DepthOneObjectSerializer(ObjectSerializer):
+    class Meta:
+        nested = 1
+
+
 def expand(obj):
     """
     Unroll any generators in returned object.
@@ -418,7 +428,7 @@ class NestedSerializationTests(SerializationTestCase):
                 }
             ]
         }
-        self.assertEquals(ObjectSerializer().serialize('python', self.obj, nested=True), expected)
+        self.assertEquals(NestedObjectSerializer().serialize('python', self.obj), expected)
 
     def test_nested_serialization_with_args(self):
         """
@@ -490,7 +500,7 @@ class NestedSerializationTests(SerializationTestCase):
             ]
         }
 
-        self.assertEquals(ObjectSerializer().serialize('python', self.obj, nested=1), expected)
+        self.assertEquals(DepthOneObjectSerializer().serialize('python', self.obj), expected)
 
 
 class RecursiveSerializationTests(SerializationTestCase):
@@ -515,7 +525,7 @@ class RecursiveSerializationTests(SerializationTestCase):
                     'father': 'john doe'
             }
         }
-        self.assertEquals(ObjectSerializer().serialize('python', self.obj, nested=True), expected)
+        self.assertEquals(NestedObjectSerializer().serialize('python', self.obj), expected)
 
 
 ##### Simple models without relationships. #####
@@ -870,6 +880,12 @@ class ProfileSerializer(ModelSerializer):
         model = Profile
 
 
+class NestedProfileSerializer(ModelSerializer):
+    class Meta:
+        model = Profile
+        nested = True
+
+
 class TestOneToOneModel(SerializationTestCase):
     """
     Test one-to-one field relationship on a model.
@@ -913,7 +929,7 @@ class TestOneToOneModel(SerializationTestCase):
             'date_of_birth': datetime.datetime(day=5, month=4, year=1979)
         }
         self.assertEquals(
-            self.profile_serializer.serialize('python', Profile.objects.get(id=1), nested=True),
+            NestedProfileSerializer().serialize('python', Profile.objects.get(id=1)),
             expected
         )
 

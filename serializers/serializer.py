@@ -279,10 +279,6 @@ class BaseSerializer(Field):
         self.stack = []
         self.context = context or {}
 
-        for keyword in ('fields', 'exclude', 'nested'):
-            if keyword in options:
-                setattr(self.opts, keyword, options.pop(keyword))
-
         data = self.to_native(obj)
         if format != 'python':
             stream = options.pop('stream', StringIO())
