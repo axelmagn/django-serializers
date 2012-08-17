@@ -15,8 +15,7 @@ import warnings
 class Field(object):
     creation_counter = 0
 
-    def __init__(self, label=None, source=None, readonly=False):
-        self.label = label
+    def __init__(self, source=None, readonly=False):
         self.source = source
         self.readonly = readonly
         self.parent = None

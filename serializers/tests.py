@@ -315,24 +315,24 @@ class SerializerFieldTests(SerializationTestCase):
 
         self.assertEquals(CustomSerializer().serialize('python', self.obj), expected)
 
-    def test_field_label(self):
-        """
-        A serializer field can take a 'label' argument, which is used as the
-        field key instead of the field's property name.
-        """
-        class CustomSerializer(ObjectSerializer):
-            full_name = ObjectSerializer(label='Full name')
-            age = ObjectSerializer(label='Age')
+    # def test_field_label(self):
+    #     """
+    #     A serializer field can take a 'label' argument, which is used as the
+    #     field key instead of the field's property name.
+    #     """
+    #     class CustomSerializer(ObjectSerializer):
+    #         full_name = ObjectSerializer(label='Full name')
+    #         age = ObjectSerializer(label='Age')
 
-            class Meta:
-                fields = ('full_name', 'age')
+    #         class Meta:
+    #             fields = ('full_name', 'age')
 
-        expected = {
-            'Full name': 'john doe',
-            'Age': 42
-        }
+    #     expected = {
+    #         'Full name': 'john doe',
+    #         'Age': 42
+    #     }
 
-        self.assertEquals(CustomSerializer().serialize('python', self.obj), expected)
+    #     self.assertEquals(CustomSerializer().serialize('python', self.obj), expected)
 
     def test_source(self):
         """
@@ -340,15 +340,15 @@ class SerializerFieldTests(SerializationTestCase):
         serializing that field.
         """
         class CustomSerializer(ObjectSerializer):
-            full_name = ObjectSerializer(label='Full name')
-            details = ObjectSerializer(label='Details', source='*')
+            full_name = ObjectSerializer()
+            details = ObjectSerializer(source='*')
 
             class Meta:
                 fields = ('full_name', 'details')
 
         expected = {
-            'Full name': 'john doe',
-            'Details': {
+            'full_name': 'john doe',
+            'details': {
                 'first_name': 'john',
                 'last_name': 'doe',
                 'age': 42
@@ -363,28 +363,28 @@ class SerializerFieldTests(SerializationTestCase):
         complete object within a field.
         """
         class DetailsSerializer(ObjectSerializer):
-            first_name = ObjectSerializer(label='First name')
-            last_name = ObjectSerializer(label='Last name')
+            first_name = ObjectSerializer()
+            last_name = ObjectSerializer()
 
             class Meta:
                 fields = ('first_name', 'last_name')
 
         class CustomSerializer(ObjectSerializer):
-            full_name = ObjectSerializer(label='Full name')
-            details = DetailsSerializer(label='Details', source='*')
+            full_name = ObjectSerializer()
+            details = DetailsSerializer(source='*')
 
             class Meta:
                 fields = ('full_name', 'details')
 
         expected = {
-            'Full name': 'john doe',
-            'Details': {
-                'First name': 'john',
-                'Last name': 'doe'
+            'full_name': 'john doe',
+            'details': {
+                'first_name': 'john',
+                'last_name': 'doe'
             }
         }
 
-    #     self.assertEquals(CustomSerializer().serialize('python', self.obj), expected)
+        self.assertEquals(CustomSerializer().serialize('python', self.obj), expected)
 
     # def test_serializer_fields_do_not_share_state(self):
     #     """

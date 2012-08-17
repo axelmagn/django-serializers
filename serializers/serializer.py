@@ -93,8 +93,8 @@ class BaseSerializer(Field):
     _options_class = SerializerOptions
     _dict_class = SortedDictWithMetadata  # Set to unsorted dict for backwards compatability with unsorted implementations.
 
-    def __init__(self, label=None, source=None, readonly=False):
-        super(BaseSerializer, self).__init__(label, source, readonly)
+    def __init__(self, source=None, readonly=False):
+        super(BaseSerializer, self).__init__(source, readonly)
         self.fields = copy.deepcopy(self.base_fields)
         self.opts = self._options_class(self.Meta)
         self.parent = None
@@ -170,12 +170,10 @@ class BaseSerializer(Field):
     #####
     # Methods to convert or revert from objects <--> primative representations.
 
-    def convert_field_key(self, obj, field_name, field):
+    def get_field_key(self, field_name):
         """
         Return the key that should be used for a given field.
         """
-        if getattr(field, 'label', None):
-            return field.label
         return field_name
 
     def convert_object(self, obj):
@@ -191,7 +189,7 @@ class BaseSerializer(Field):
 
         fields = self.get_fields(serialize=True, obj=obj, nested=self.opts.nested)
         for field_name, field in fields.items():
-            key = self.convert_field_key(obj, field_name, field)
+            key = self.get_field_key(field_name)
             try:
                 value = field.field_to_native(obj, field_name)
             except RecursionOccured:
