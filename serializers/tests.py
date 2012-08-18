@@ -6,14 +6,8 @@ from django.test import TestCase
 from django.utils.datastructures import SortedDict
 from serializers import Serializer, ModelSerializer, FixtureSerializer
 from serializers.fields import Field, NaturalKeyRelatedField, PrimaryKeyRelatedField
+from serializers import serialize, deserialize
 
-
-def serialize(format, obj, serializer=None, **options):
-    return serializer().serialize(format, obj, **options)
-
-
-def deserialize(format, data, serializer=None, **options):
-    return serializer().deserialize(format, data, **options)
 
 # ObjectSerializer has been removed from serializers
 # leaving it in the tests for the moment for more coverage.
@@ -70,8 +64,8 @@ def get_deserialized(queryset, serializer=None, format=None, **kwargs):
     format = format or 'json'
     if serializer:
         # django-serializers
-        serialized = serializer().serialize(format, queryset, **kwargs)
-        return serializer().deserialize(format, serialized)
+        serialized = serialize(format, queryset, serializer=serializer, **kwargs)
+        return deserialize(format, serialized, serializer=serializer)
     # Existing Django serializers
     serialized = serializers.serialize(format, queryset, **kwargs)
     return serializers.deserialize(format, serialized)
@@ -810,7 +804,7 @@ class TestNaturalKey(SerializationTestCase):
         'use_natural_keys' behaviour.
         """
         self.assertEquals(
-            FixtureSerializer().serialize('json', Pet.objects.all(), use_natural_keys=True),
+            serialize('json', Pet.objects.all(), use_natural_keys=True),
             serializers.serialize('json', Pet.objects.all(), use_natural_keys=True)
         )
 
@@ -820,7 +814,7 @@ class TestNaturalKey(SerializationTestCase):
         'use_natural_keys' behaviour.
         """
         self.assertEquals(
-            FixtureSerializer().serialize('yaml', Pet.objects.all(), use_natural_keys=True),
+            serialize('yaml', Pet.objects.all(), use_natural_keys=True),
             serializers.serialize('yaml', Pet.objects.all(), use_natural_keys=True)
         )
 
@@ -830,7 +824,7 @@ class TestNaturalKey(SerializationTestCase):
         'use_natural_keys' behaviour.
         """
         self.assertEquals(
-            FixtureSerializer().serialize('xml', Pet.objects.all(), use_natural_keys=True),
+            serialize('xml', Pet.objects.all(), use_natural_keys=True),
             serializers.serialize('xml', Pet.objects.all(), use_natural_keys=True)
         )
 
@@ -853,7 +847,7 @@ class TestNaturalKey(SerializationTestCase):
             "name": u"frogger"
         }]
         self.assertEquals(
-            NaturalKeyModelSerializer().serialize('python', Pet.objects.all()),
+            serialize('python', Pet.objects.all(), serializer=NaturalKeyModelSerializer),
             expected
         )
 
@@ -873,7 +867,7 @@ class TestNaturalKey(SerializationTestCase):
             "pets": [u"splash gordon", u"frogger"]  # NK, not PK
         }]
         self.assertEquals(
-            PetOwnerSerializer().serialize('python', PetOwner.objects.all()),
+            serialize('python', PetOwner.objects.all(), serializer=PetOwnerSerializer),
             expected
         )
 
@@ -1372,10 +1366,10 @@ class NonIntegerPKTests(SerializationTestCase):
         ac.save()
         mv.save()
 
-        serial_str = FixtureSerializer().serialize('json', [mv])
+        serial_str = serialize('json', [mv])
         self.assertEqual(serializers.serialize('json', [mv]), serial_str)
 
-        obj_list = list(FixtureSerializer().deserialize('json', serial_str))
+        obj_list = list(deserialize('json', serial_str))
         mv_obj = obj_list[0].object
         self.assertEqual(mv_obj.title, movie_title)
 

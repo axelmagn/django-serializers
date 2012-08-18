@@ -1,4 +1,5 @@
 from serializers import FixtureSerializer
+from serializers import serialize, deserialize
 
 format = 'python'
 
@@ -10,8 +11,9 @@ class Serializer(FixtureSerializer):
         return self.value  # Backwards compatability with serialization API.
 
     def serialize(self, *args, **kwargs):
-        return super(Serializer, self).serialize(format, *args, **kwargs)
+        self.value = serialize(format, *args, **kwargs)
+        return self.value
 
 
 def Deserializer(*args, **kwargs):
-    return Serializer().deserialize(format, *args, **kwargs)
+    return deserialize(format, *args, **kwargs)

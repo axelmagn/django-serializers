@@ -4,15 +4,6 @@ from django.utils.datastructures import SortedDict
 from django.utils.encoding import smart_unicode
 from serializers import Field, PrimaryKeyRelatedField, NaturalKeyRelatedField
 from serializers import Serializer
-from serializers.renderers import (
-    JSONRenderer,
-    YAMLRenderer,
-    DumpDataXMLRenderer
-)
-from serializers.parsers import (
-    JSONParser,
-    DumpDataXMLParser
-)
 from serializers.utils import DictWithMetadata
 
 
@@ -89,18 +80,7 @@ class FixtureSerializer(Serializer):
     model = ModelNameField()
     fields = FixtureFields(source='*')
 
-    class Meta:
-        renderer_classes = {
-            'xml': DumpDataXMLRenderer,
-            'json': JSONRenderer,
-            'yaml': YAMLRenderer,
-        }
-        parser_classes = {
-            'xml': DumpDataXMLParser,
-            'json': JSONParser
-        }
-
-    def serialize(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         """
         Override default behavior slightly:
 
@@ -109,17 +89,15 @@ class FixtureSerializer(Serializer):
            'FixtureFields' child serializer, not to the root serializer.
         """
         self.use_natural_keys = kwargs.pop('use_natural_keys', False)
-
-        # TODO: Actually, this is buggy - fields/exclude will be retained as
-        # state between subsequant calls to serialize()
         fields = kwargs.pop('fields', None)
         exclude = kwargs.pop('exclude', None)
+
+        super(FixtureSerializer, self).__init__(*args, **kwargs)
+
         if fields is not None:
             self.fields['fields'].opts.fields = fields
         if exclude is not None:
             self.fields['fields'].opts.exclude = exclude
-
-        return super(FixtureSerializer, self).serialize(*args, **kwargs)
 
     def restore_fields(self, data):
         """

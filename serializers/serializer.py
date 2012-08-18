@@ -4,19 +4,8 @@ from django.utils.datastructures import SortedDict
 import copy
 import datetime
 import types
-from serializers.renderers import (
-    JSONRenderer,
-    YAMLRenderer,
-    XMLRenderer,
-    HTMLRenderer,
-    CSVRenderer,
-)
-from serializers.parsers import (
-    JSONParser,
-)
 from serializers.fields import *
 from serializers.utils import SortedDictWithMetadata, is_simple_callable
-from StringIO import StringIO
 
 
 class RecursionOccured(BaseException):
@@ -73,16 +62,6 @@ class SerializerOptions(object):
         self.nested = getattr(meta, 'nested', False)
         self.fields = getattr(meta, 'fields', ())
         self.exclude = getattr(meta, 'exclude', ())
-        self.renderer_classes = getattr(meta, 'renderer_classes', {
-            'xml': XMLRenderer,
-            'json': JSONRenderer,
-            'yaml': YAMLRenderer,
-            'csv': CSVRenderer,
-            'html': HTMLRenderer,
-        })
-        self.parser_classes = getattr(meta, 'parser_classes', {
-            'json': JSONParser
-        })
 
 
 class BaseSerializer(Field):
@@ -92,12 +71,19 @@ class BaseSerializer(Field):
     _options_class = SerializerOptions
     _dict_class = SortedDictWithMetadata  # Set to unsorted dict for backwards compatability with unsorted implementations.
 
-    def __init__(self, source=None, readonly=False):
+    def __init__(self, data=None, instance=None, context=None,
+                 source=None, readonly=False):
         super(BaseSerializer, self).__init__(source, readonly)
         self.fields = copy.deepcopy(self.base_fields)
         self.opts = self._options_class(self.Meta)
         self.parent = None
         self.root = None
+
+        self.stack = []
+        self.context = context or {}
+
+        self.init_data = data
+        self.instance = instance
 
     #####
     # Methods to determine which fields to use when (de)serializing objects.
@@ -248,51 +234,13 @@ class BaseSerializer(Field):
             attrs = self.restore_fields(data)
             return self.restore_object(attrs, instance=getattr(self, 'instance', None))
 
-    def render(self, data, format, **options):
-        """
-        Render primatives -> bytestream for serialization.
-        """
-        renderer = self.opts.renderer_classes[format]()
-        return renderer.render(data, **options)
+    @property
+    def data(self):
+        return self.to_native(self.instance)
 
-    def parse(self, stream, format, **options):
-        """
-        Parse bytestream -> primatives for deserialization.
-        """
-        parser = self.opts.parser_classes[format]()
-        return parser.parse(stream, **options)
-
-    def serialize(self, format, obj, context=None, **options):
-        """
-        Perform serialization of objects into bytestream.
-        First converts the objects into primatives,
-        then renders primative types to bytestream.
-        """
-        self.stack = []
-        self.context = context or {}
-
-        data = self.to_native(obj)
-        if format != 'python':
-            self.value = self.render(data, format, **options)
-        else:
-            self.value = data
-        return self.value
-
-    def deserialize(self, format, stream, instance=None, context=None, **options):
-        """
-        Perform deserialization of bytestream into objects.
-        First parses the bytestream into primative types,
-        then converts primative types into objects.
-        """
-        self.stack = []
-        self.context = context or {}
-        self.instance = instance
-
-        if format != 'python':
-            data = self.parse(stream, format, **options)
-        else:
-            data = stream
-        return self.from_native(data)
+    @property
+    def object(self):
+        return self.from_native(self.init_data)
 
 
 class Serializer(BaseSerializer):
