@@ -130,6 +130,7 @@ class FixtureSerializer(Serializer):
         2. Determine the class to use when restoring the model.
         """
         self.model = models.get_model(*data['model'].split("."))
+        self.fields['pk'].model_field = self.model._meta.pk
         return super(FixtureSerializer, self).restore_fields(data)
 
     def restore_object(self, attrs, instance=None):

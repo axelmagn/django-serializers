@@ -7,6 +7,14 @@ from django.utils.datastructures import SortedDict
 from serializers import Serializer, ModelSerializer, FixtureSerializer
 from serializers.fields import Field, NaturalKeyRelatedField, PrimaryKeyRelatedField
 
+
+def serialize(format, obj, serializer=None, **options):
+    return serializer().serialize(format, obj, **options)
+
+
+def deserialize(format, data, serializer=None, **options):
+    return serializer().deserialize(format, data, **options)
+
 # ObjectSerializer has been removed from serializers
 # leaving it in the tests for the moment for more coverage.
 
@@ -62,8 +70,8 @@ def get_deserialized(queryset, serializer=None, format=None, **kwargs):
     format = format or 'json'
     if serializer:
         # django-serializers
-        serialized = serializer.serialize(format, queryset, **kwargs)
-        return serializer.deserialize(format, serialized)
+        serialized = serializer().serialize(format, queryset, **kwargs)
+        return serializer().deserialize(format, serialized)
     # Existing Django serializers
     serialized = serializers.serialize(format, queryset, **kwargs)
     return serializers.deserialize(format, serialized)
@@ -108,13 +116,13 @@ class TestBasicObjects(SerializationTestCase):
     def test_list(self):
         obj = []
         expected = '[]'
-        output = ObjectSerializer().serialize('json', obj)
+        output = serialize('json', obj, serializer=ObjectSerializer)
         self.assertEquals(output, expected)
 
     def test_dict(self):
         obj = {}
         expected = '{}'
-        output = ObjectSerializer().serialize('json', obj)
+        output = serialize('json', obj, serializer=ObjectSerializer)
         self.assertEquals(output, expected)
 
 
@@ -159,17 +167,17 @@ class EncoderTests(SerializationTestCase):
 
     def test_json(self):
         expected = '{"a": 1, "b": "foo", "c": true}'
-        output = ObjectSerializer().serialize('json', self.obj)
+        output = serialize('json', self.obj, serializer=ObjectSerializer)
         self.assertEquals(output, expected)
 
     def test_yaml(self):
         expected = '{a: 1, b: foo, c: true}\n'
-        output = ObjectSerializer().serialize('yaml', self.obj)
+        output = serialize('yaml', self.obj, serializer=ObjectSerializer)
         self.assertEquals(output, expected)
 
     def test_xml(self):
         expected = '<?xml version="1.0" encoding="utf-8"?>\n<object><a>1</a><b>foo</b><c>True</c></object>'
-        output = ObjectSerializer().serialize('xml', self.obj)
+        output = serialize('xml', self.obj, serializer=ObjectSerializer)
         self.assertEquals(output, expected)
 
 
@@ -187,7 +195,7 @@ class BasicSerializerTests(SerializationTestCase):
             'c': True
         }
 
-        self.assertEquals(ObjectSerializer().serialize('python', self.obj), expected)
+        self.assertEquals(serialize('python', self.obj, serializer=ObjectSerializer), expected)
 
     def test_serialize_fields(self):
         """
@@ -202,7 +210,7 @@ class BasicSerializerTests(SerializationTestCase):
             'c': True
         }
 
-        self.assertEquals(CustomSerializer().serialize('python', self.obj), expected)
+        self.assertEquals(serialize('python', self.obj, serializer=CustomSerializer), expected)
 
     def test_serialize_exclude(self):
         """
@@ -217,7 +225,7 @@ class BasicSerializerTests(SerializationTestCase):
             'c': True
         }
 
-        self.assertEquals(CustomSerializer().serialize('python', self.obj), expected)
+        self.assertEquals(serialize('python', self.obj, serializer=CustomSerializer), expected)
 
 
 class SerializeAttributeTests(SerializationTestCase):
@@ -237,7 +245,7 @@ class SerializeAttributeTests(SerializationTestCase):
             'age': 42
         }
 
-        self.assertEquals(ObjectSerializer().serialize('python', self.obj), expected)
+        self.assertEquals(serialize('python', self.obj, serializer=ObjectSerializer), expected)
 
     def test_serialization_can_include_properties(self):
         """
@@ -254,7 +262,7 @@ class SerializeAttributeTests(SerializationTestCase):
             'age': 42
         }
 
-        self.assertEquals(CustomSerializer().serialize('python', self.obj), expected)
+        self.assertEquals(serialize('python', self.obj, serializer=CustomSerializer), expected)
 
     def test_serialization_can_include_no_arg_methods(self):
         """
@@ -272,7 +280,7 @@ class SerializeAttributeTests(SerializationTestCase):
             'is_child': False
         }
 
-        self.assertEquals(CustomSerializer().serialize('python', self.obj), expected)
+        self.assertEquals(serialize('python', self.obj, serializer=CustomSerializer), expected)
 
 
 class SerializerFieldTests(SerializationTestCase):
@@ -295,7 +303,7 @@ class SerializerFieldTests(SerializationTestCase):
             'full_name': 'john doe',
         }
 
-        self.assertEquals(CustomSerializer().serialize('python', self.obj), expected)
+        self.assertEquals(serialize('python', self.obj, serializer=CustomSerializer), expected)
 
     def test_include_default_fields(self):
         """
@@ -313,7 +321,7 @@ class SerializerFieldTests(SerializationTestCase):
             'age': 42
         }
 
-        self.assertEquals(CustomSerializer().serialize('python', self.obj), expected)
+        self.assertEquals(serialize('python', self.obj, serializer=CustomSerializer), expected)
 
     # def test_field_label(self):
     #     """
@@ -332,7 +340,7 @@ class SerializerFieldTests(SerializationTestCase):
     #         'Age': 42
     #     }
 
-    #     self.assertEquals(CustomSerializer().serialize('python', self.obj), expected)
+    #     self.assertEquals(serialize('python', self.obj, serializer=CustomSerializer), expected)
 
     def test_source(self):
         """
@@ -355,7 +363,7 @@ class SerializerFieldTests(SerializationTestCase):
             }
         }
 
-        self.assertEquals(CustomSerializer().serialize('python', self.obj), expected)
+        self.assertEquals(serialize('python', self.obj, serializer=CustomSerializer), expected)
 
     def test_source_all_with_custom_serializer(self):
         """
@@ -384,7 +392,7 @@ class SerializerFieldTests(SerializationTestCase):
             }
         }
 
-        self.assertEquals(CustomSerializer().serialize('python', self.obj), expected)
+        self.assertEquals(serialize('python', self.obj, serializer=CustomSerializer), expected)
 
     # def test_serializer_fields_do_not_share_state(self):
     #     """
@@ -413,7 +421,7 @@ class SerializerFieldTests(SerializationTestCase):
 
         keys = ['first_name', 'full_name', 'age', 'last_name']
 
-        self.assertEquals(CustomSerializer().serialize('python', self.obj).keys(), keys)
+        self.assertEquals(serialize('python', self.obj, serializer=CustomSerializer).keys(), keys)
 
 
 class NestedSerializationTests(SerializationTestCase):
@@ -454,7 +462,7 @@ class NestedSerializationTests(SerializationTestCase):
                 }
             ]
         }
-        self.assertEquals(NestedObjectSerializer().serialize('python', self.obj), expected)
+        self.assertEquals(serialize('python', self.obj, serializer=NestedObjectSerializer), expected)
 
     def test_nested_serialization_with_args(self):
         """
@@ -482,7 +490,7 @@ class NestedSerializationTests(SerializationTestCase):
             ]
         }
 
-        self.assertEquals(PersonSerializer().serialize('python', self.obj), expected)
+        self.assertEquals(serialize('python', self.obj, serializer=PersonSerializer), expected)
 
     # TODO: Changed slightly
     # def test_flat_serialization(self):
@@ -500,7 +508,7 @@ class NestedSerializationTests(SerializationTestCase):
     #         ]
     #     }
 
-    #     self.assertEquals(ObjectSerializer().serialize('python', self.obj), expected)
+    #     self.assertEquals(serialize('python', self.obj, serializer=ObjectSerializer), expected)
 
     def test_depth_one_serialization(self):
         """
@@ -526,7 +534,7 @@ class NestedSerializationTests(SerializationTestCase):
             ]
         }
 
-        self.assertEquals(DepthOneObjectSerializer().serialize('python', self.obj), expected)
+        self.assertEquals(serialize('python', self.obj, serializer=DepthOneObjectSerializer), expected)
 
 
 class RecursiveSerializationTests(SerializationTestCase):
@@ -551,7 +559,7 @@ class RecursiveSerializationTests(SerializationTestCase):
                     'father': 'john doe'
             }
         }
-        self.assertEquals(NestedObjectSerializer().serialize('python', self.obj), expected)
+        self.assertEquals(serialize('python', self.obj, serializer=NestedObjectSerializer), expected)
 
 
 ##### Simple models without relationships. #####
@@ -570,8 +578,6 @@ class RaceEntrySerializer(ModelSerializer):
 
 class TestSimpleModel(SerializationTestCase):
     def setUp(self):
-        self.dumpdata = FixtureSerializer()
-        self.serializer = RaceEntrySerializer()
         RaceEntry.objects.create(
             name='John doe',
             runner_number=6014,
@@ -581,19 +587,19 @@ class TestSimpleModel(SerializationTestCase):
 
     def test_simple_dumpdata_json(self):
         self.assertEquals(
-            self.dumpdata.serialize('json', RaceEntry.objects.all()),
+            serialize('json', RaceEntry.objects.all(), serializer=FixtureSerializer),
             serializers.serialize('json', RaceEntry.objects.all())
         )
 
     def test_simple_dumpdata_yaml(self):
         self.assertEquals(
-            self.dumpdata.serialize('yaml', RaceEntry.objects.all()),
+            serialize('yaml', RaceEntry.objects.all(), serializer=FixtureSerializer),
             serializers.serialize('yaml', RaceEntry.objects.all())
         )
 
     def test_simple_dumpdata_xml(self):
         self.assertEquals(
-            self.dumpdata.serialize('xml', RaceEntry.objects.all()),
+            serialize('xml', RaceEntry.objects.all(), serializer=FixtureSerializer),
             serializers.serialize('xml', RaceEntry.objects.all())
         )
 
@@ -603,33 +609,33 @@ class TestSimpleModel(SerializationTestCase):
             "1,John doe,6014,2012-04-30 09:00:00,2012-04-30 12:25:00\r\n"
         )
         self.assertEquals(
-            self.serializer.serialize('csv', RaceEntry.objects.all()),
+            serialize('csv', RaceEntry.objects.all(), serializer=RaceEntrySerializer),
             expected
         )
 
     def test_simple_dumpdata_fields(self):
         self.assertEquals(
-            self.dumpdata.serialize('json', RaceEntry.objects.all(), fields=('name', 'runner_number')),
+            serialize('json', RaceEntry.objects.all(), fields=('name', 'runner_number'), serializer=FixtureSerializer),
             serializers.serialize('json', RaceEntry.objects.all(), fields=('name', 'runner_number'))
         )
 
     def test_deserialize_fields(self):
-        lhs = get_deserialized(RaceEntry.objects.all(), serializer=self.dumpdata, fields=('runner_number',))
+        lhs = get_deserialized(RaceEntry.objects.all(), serializer=FixtureSerializer, fields=('runner_number',))
         rhs = get_deserialized(RaceEntry.objects.all(), fields=('runner_number',))
         self.assertTrue(deserialized_eq(lhs, rhs))
 
     def test_modelserializer_deserialize(self):
-        lhs = get_deserialized(RaceEntry.objects.all(), serializer=self.serializer)
+        lhs = get_deserialized(RaceEntry.objects.all(), serializer=RaceEntrySerializer)
         rhs = get_deserialized(RaceEntry.objects.all())
         self.assertTrue(deserialized_eq(lhs, rhs))
 
     def test_dumpdata_deserialize(self):
-        lhs = get_deserialized(RaceEntry.objects.all(), serializer=self.dumpdata)
+        lhs = get_deserialized(RaceEntry.objects.all(), serializer=FixtureSerializer)
         rhs = get_deserialized(RaceEntry.objects.all())
         self.assertTrue(deserialized_eq(lhs, rhs))
 
     def test_dumpdata_deserialize_xml(self):
-        lhs = get_deserialized(RaceEntry.objects.all(), format='xml', serializer=self.dumpdata)
+        lhs = get_deserialized(RaceEntry.objects.all(), format='xml', serializer=FixtureSerializer)
         rhs = get_deserialized(RaceEntry.objects.all(), format='xml')
         self.assertTrue(deserialized_eq(lhs, rhs))
 
@@ -641,8 +647,6 @@ class TestSimpleModel(SerializationTestCase):
 
 class TestNullPKModel(SerializationTestCase):
     def setUp(self):
-        self.dumpdata = FixtureSerializer()
-        self.serializer = RaceEntrySerializer()
         self.objs = [RaceEntry(
             name='John doe',
             runner_number=6014,
@@ -652,34 +656,34 @@ class TestNullPKModel(SerializationTestCase):
 
     def test_null_pk_dumpdata_json(self):
         self.assertEquals(
-            self.dumpdata.serialize('json', self.objs),
+            serialize('json', self.objs, serializer=FixtureSerializer),
             serializers.serialize('json', self.objs)
         )
 
     def test_null_pk_dumpdata_yaml(self):
         self.assertEquals(
-            self.dumpdata.serialize('yaml', self.objs),
+            serialize('yaml', self.objs, serializer=FixtureSerializer),
             serializers.serialize('yaml', self.objs)
         )
 
     def test_null_pk_dumpdata_xml(self):
         self.assertEquals(
-            self.dumpdata.serialize('xml', self.objs),
+            serialize('xml', self.objs, serializer=FixtureSerializer),
             serializers.serialize('xml', self.objs)
         )
 
     def test_modelserializer_deserialize(self):
-        lhs = get_deserialized(self.objs, serializer=self.serializer)
+        lhs = get_deserialized(self.objs, serializer=RaceEntrySerializer)
         rhs = get_deserialized(self.objs)
         self.assertTrue(deserialized_eq(lhs, rhs))
 
     def test_dumpdata_deserialize(self):
-        lhs = get_deserialized(self.objs, serializer=self.dumpdata)
+        lhs = get_deserialized(self.objs, serializer=FixtureSerializer)
         rhs = get_deserialized(self.objs)
         self.assertTrue(deserialized_eq(lhs, rhs))
 
     def test_dumpdata_deserialize_xml(self):
-        lhs = get_deserialized(self.objs, format='xml', serializer=self.dumpdata)
+        lhs = get_deserialized(self.objs, format='xml', serializer=FixtureSerializer)
         rhs = get_deserialized(self.objs, format='xml')
         self.assertTrue(deserialized_eq(lhs, rhs))
 
@@ -702,8 +706,6 @@ class PremiumAccountSerializer(ModelSerializer):
 
 class TestModelInheritance(SerializationTestCase):
     def setUp(self):
-        self.dumpdata = FixtureSerializer()
-        self.serializer = PremiumAccountSerializer()
         PremiumAccount.objects.create(
             points=42,
             company='Foozle Inc.',
@@ -712,7 +714,7 @@ class TestModelInheritance(SerializationTestCase):
 
     def test_dumpdata_child_model(self):
         self.assertEquals(
-            self.dumpdata.serialize('json', PremiumAccount.objects.all()),
+            serialize('json', PremiumAccount.objects.all(), serializer=FixtureSerializer),
             serializers.serialize('json', PremiumAccount.objects.all())
         )
 
@@ -724,25 +726,25 @@ class TestModelInheritance(SerializationTestCase):
             'date_upgraded': datetime.datetime(2012, 4, 30, 9, 0)
         }]
         self.assertEquals(
-            self.serializer.serialize('python', PremiumAccount.objects.all()),
+            serialize('python', PremiumAccount.objects.all(), serializer=PremiumAccountSerializer),
             expected
         )
 
     def test_modelserializer_deserialize(self):
-        lhs = get_deserialized(PremiumAccount.objects.all(), serializer=self.serializer)
+        lhs = get_deserialized(PremiumAccount.objects.all(), serializer=PremiumAccountSerializer)
         rhs = get_deserialized(PremiumAccount.objects.all())
         self.assertFalse(deserialized_eq(lhs, rhs))
         # We expect these *not* to match - the dumpdata implementation only
         # includes the base fields.
 
     def test_dumpdata_deserialize(self):
-        lhs = get_deserialized(PremiumAccount.objects.all(), serializer=self.dumpdata)
+        lhs = get_deserialized(PremiumAccount.objects.all(), serializer=FixtureSerializer)
         rhs = get_deserialized(PremiumAccount.objects.all())
         self.assertTrue(deserialized_eq(lhs, rhs))
 
     # TODO:
     # def test_dumpdata_deserialize_xml(self):
-    #     lhs = get_deserialized(PremiumAccount.objects.all(), format='xml', serializer=self.dumpdata)
+    #     lhs = get_deserialized(PremiumAccount.objects.all(), format='xml', serializer=FixtureSerializer)
     #     rhs = get_deserialized(PremiumAccount.objects.all(), format='xml')
     #     self.assertTrue(deserialized_eq(lhs, rhs))
 
@@ -881,7 +883,7 @@ class TestNaturalKey(SerializationTestCase):
     #     self.assertTrue(deserialized_eq(lhs, rhs))
 
     def test_dumpdata_deserialize(self):
-        lhs = get_deserialized(Pet.objects.all(), serializer=FixtureSerializer(), use_natural_keys=True)
+        lhs = get_deserialized(Pet.objects.all(), serializer=FixtureSerializer, use_natural_keys=True)
         rhs = get_deserialized(Pet.objects.all(), use_natural_keys=True)
         self.assertTrue(deserialized_eq(lhs, rhs))
 
@@ -914,8 +916,6 @@ class TestOneToOneModel(SerializationTestCase):
     Test one-to-one field relationship on a model.
     """
     def setUp(self):
-        self.dumpdata = FixtureSerializer()
-        self.profile_serializer = ProfileSerializer()
         user = User.objects.create(email='joe@example.com')
         Profile.objects.create(
             user=user,
@@ -925,19 +925,19 @@ class TestOneToOneModel(SerializationTestCase):
 
     def test_onetoone_dumpdata_json(self):
         self.assertEquals(
-            self.dumpdata.serialize('json', Profile.objects.all()),
+            serialize('json', Profile.objects.all(), serializer=FixtureSerializer),
             serializers.serialize('json', Profile.objects.all())
         )
 
     def test_onetoone_dumpdata_yaml(self):
         self.assertEquals(
-            self.dumpdata.serialize('yaml', Profile.objects.all()),
+            serialize('yaml', Profile.objects.all(), serializer=FixtureSerializer),
             serializers.serialize('yaml', Profile.objects.all())
         )
 
     def test_onetoone_dumpdata_xml(self):
         self.assertEquals(
-            self.dumpdata.serialize('xml', Profile.objects.all()),
+            serialize('xml', Profile.objects.all(), serializer=FixtureSerializer),
             serializers.serialize('xml', Profile.objects.all())
         )
 
@@ -952,7 +952,7 @@ class TestOneToOneModel(SerializationTestCase):
             'date_of_birth': datetime.datetime(day=5, month=4, year=1979)
         }
         self.assertEquals(
-            NestedProfileSerializer().serialize('python', Profile.objects.get(id=1)),
+            serialize('python', Profile.objects.get(id=1), serializer=NestedProfileSerializer),
             expected
         )
 
@@ -964,19 +964,27 @@ class TestOneToOneModel(SerializationTestCase):
             'date_of_birth': datetime.datetime(day=5, month=4, year=1979)
         }
         self.assertEquals(
-            self.profile_serializer.serialize('python', Profile.objects.get(id=1)),
+            serialize('python', Profile.objects.get(id=1), serializer=ProfileSerializer),
             expected
         )
 
     def test_modelserializer_deserialize(self):
-        lhs = get_deserialized(Profile.objects.all(), serializer=self.profile_serializer)
+        lhs = get_deserialized(Profile.objects.all(), serializer=ProfileSerializer)
         rhs = get_deserialized(Profile.objects.all())
         self.assertTrue(deserialized_eq(lhs, rhs))
 
     def test_dumpdata_deserialize(self):
-        lhs = get_deserialized(Profile.objects.all(), serializer=self.dumpdata)
+        lhs = get_deserialized(Profile.objects.all(), serializer=FixtureSerializer)
         rhs = get_deserialized(Profile.objects.all())
         self.assertTrue(deserialized_eq(lhs, rhs))
+
+
+class NestedUserSerializer(ModelSerializer):
+    profile = ModelSerializer()
+
+
+class FlatUserSerializer(ModelSerializer):
+    profile = PrimaryKeyRelatedField()
 
 
 class TestReverseOneToOneModel(SerializationTestCase):
@@ -989,14 +997,6 @@ class TestReverseOneToOneModel(SerializationTestCase):
     """
 
     def setUp(self):
-        class NestedUserSerializer(ModelSerializer):
-            profile = ModelSerializer()
-
-        class FlatUserSerializer(ModelSerializer):
-            profile = PrimaryKeyRelatedField()
-
-        self.nested_model = NestedUserSerializer()
-        self.flat_model = FlatUserSerializer()
         user = User.objects.create(email='joe@example.com')
         Profile.objects.create(
             user=user,
@@ -1016,7 +1016,7 @@ class TestReverseOneToOneModel(SerializationTestCase):
             },
         }
         self.assertEquals(
-            self.nested_model.serialize('python', User.objects.get(id=1)),
+            serialize('python', User.objects.get(id=1), serializer=NestedUserSerializer),
             expected
         )
 
@@ -1027,7 +1027,7 @@ class TestReverseOneToOneModel(SerializationTestCase):
             'profile': 1,
         }
         self.assertEquals(
-            self.flat_model.serialize('python', User.objects.get(id=1)),
+            serialize('python', User.objects.get(id=1), serializer=FlatUserSerializer),
             expected
         )
 
@@ -1058,9 +1058,6 @@ class TestFKModel(SerializationTestCase):
     Test one-to-one field relationship on a model.
     """
     def setUp(self):
-        self.dumpdata = FixtureSerializer()
-        self.nested_model = NestedVehicleSerializer()
-        self.flat_model = VehicleSerializer()
         self.owner = Owner.objects.create(
             email='tom@example.com'
         )
@@ -1077,19 +1074,19 @@ class TestFKModel(SerializationTestCase):
 
     def test_fk_dumpdata_json(self):
         self.assertEquals(
-            self.dumpdata.serialize('json', Vehicle.objects.all()),
+            serialize('json', Vehicle.objects.all(), serializer=FixtureSerializer),
             serializers.serialize('json', Vehicle.objects.all())
         )
 
     def test_fk_dumpdata_yaml(self):
         self.assertEquals(
-            self.dumpdata.serialize('yaml', Vehicle.objects.all()),
+            serialize('yaml', Vehicle.objects.all(), serializer=FixtureSerializer),
             serializers.serialize('yaml', Vehicle.objects.all())
         )
 
     def test_fk_dumpdata_xml(self):
         self.assertEquals(
-            self.dumpdata.serialize('xml', Vehicle.objects.all()),
+            serialize('xml', Vehicle.objects.all(), serializer=FixtureSerializer),
             serializers.serialize('xml', Vehicle.objects.all())
         )
 
@@ -1104,7 +1101,7 @@ class TestFKModel(SerializationTestCase):
             'date_of_manufacture': datetime.date(day=6, month=6, year=2005)
         }
         self.assertEquals(
-            self.nested_model.serialize('python', Vehicle.objects.get(id=1)),
+            serialize('python', Vehicle.objects.get(id=1), serializer=NestedVehicleSerializer),
             expected
         )
 
@@ -1116,17 +1113,17 @@ class TestFKModel(SerializationTestCase):
             'date_of_manufacture': datetime.date(day=6, month=6, year=2005)
         }
         self.assertEquals(
-            self.flat_model.serialize('python', Vehicle.objects.get(id=1)),
+            serialize('python', Vehicle.objects.get(id=1), serializer=VehicleSerializer),
             expected
         )
 
     def test_modelserializer_deserialize(self):
-        lhs = get_deserialized(Vehicle.objects.all(), serializer=self.flat_model)
+        lhs = get_deserialized(Vehicle.objects.all(), serializer=VehicleSerializer)
         rhs = get_deserialized(Vehicle.objects.all())
         self.assertTrue(deserialized_eq(lhs, rhs))
 
     def test_dumpdata_deserialize(self):
-        lhs = get_deserialized(Vehicle.objects.all(), serializer=self.dumpdata)
+        lhs = get_deserialized(Vehicle.objects.all(), serializer=FixtureSerializer)
         rhs = get_deserialized(Vehicle.objects.all())
         self.assertTrue(deserialized_eq(lhs, rhs))
 
@@ -1141,12 +1138,12 @@ class TestFKModel(SerializationTestCase):
         }
 
         self.assertEquals(
-            OwnerSerializer().serialize('python', Owner.objects.get(id=1)),
+            serialize('python', Owner.objects.get(id=1), serializer=OwnerSerializer),
             expected
         )
 
     def test_reverse_fk_nested(self):
-        class OwnerSerializer(ModelSerializer):
+        class NestedOwnerSerializer(ModelSerializer):
             vehicles = ModelSerializer()
 
         expected = {
@@ -1167,7 +1164,7 @@ class TestFKModel(SerializationTestCase):
             ]
         }
         self.assertEquals(
-            OwnerSerializer().serialize('python', Owner.objects.get(id=1)),
+            serialize('python', Owner.objects.get(id=1), serializer=NestedOwnerSerializer),
             expected
         )
 
@@ -1198,9 +1195,6 @@ class TestManyToManyModel(SerializationTestCase):
     Test one-to-one field relationship on a model.
     """
     def setUp(self):
-        self.dumpdata = FixtureSerializer()
-        self.nested_model = NestedBookSerializer()
-        self.flat_model = BookSerializer()
         self.lucy = Author.objects.create(
             name='Lucy Black'
         )
@@ -1223,34 +1217,31 @@ class TestManyToManyModel(SerializationTestCase):
 
     def test_m2m_dumpdata_json(self):
         self.assertEquals(
-            self.dumpdata.serialize('json', Book.objects.all()),
+            serialize('json', Book.objects.all(), serializer=FixtureSerializer),
             serializers.serialize('json', Book.objects.all())
         )
         self.assertEquals(
-            self.dumpdata.serialize('json', Author.objects.all()),
+            serialize('json', Author.objects.all(), serializer=FixtureSerializer),
             serializers.serialize('json', Author.objects.all())
         )
 
     def test_m2m_dumpdata_yaml(self):
         self.assertEquals(
-            self.dumpdata.serialize('yaml', Book.objects.all()),
+            serialize('yaml', Book.objects.all(), serializer=FixtureSerializer),
             serializers.serialize('yaml', Book.objects.all())
         )
         self.assertEquals(
-            self.dumpdata.serialize('yaml', Author.objects.all()),
+            serialize('yaml', Author.objects.all(), serializer=FixtureSerializer),
             serializers.serialize('yaml', Author.objects.all())
         )
 
     def test_m2m_dumpdata_xml(self):
-        # # Hack to ensure field ordering is correct for xml
-        # dumpdata = FixtureSerializer()
-        # dumpdata.fields['fields'].opts.preserve_field_order = True
         self.assertEquals(
-            self.dumpdata.serialize('xml', Book.objects.all()),
+            serialize('xml', Book.objects.all(), serializer=FixtureSerializer),
             serializers.serialize('xml', Book.objects.all())
         )
         self.assertEquals(
-            self.dumpdata.serialize('xml', Author.objects.all()),
+            serialize('xml', Author.objects.all(), serializer=FixtureSerializer),
             serializers.serialize('xml', Author.objects.all())
         )
 
@@ -1265,7 +1256,7 @@ class TestManyToManyModel(SerializationTestCase):
             ]
         }
         self.assertEquals(
-            self.nested_model.serialize('python', Book.objects.get(id=1)),
+            serialize('python', Book.objects.get(id=1), serializer=NestedBookSerializer),
             expected
         )
 
@@ -1277,17 +1268,17 @@ class TestManyToManyModel(SerializationTestCase):
             'authors': [1, 2]
         }
         self.assertEquals(
-            self.flat_model.serialize('python', Book.objects.get(id=1)),
+            serialize('python', Book.objects.get(id=1), serializer=BookSerializer),
             expected
         )
 
     def test_modelserializer_deserialize(self):
-        lhs = get_deserialized(Book.objects.all(), serializer=self.flat_model)
+        lhs = get_deserialized(Book.objects.all(), serializer=BookSerializer)
         rhs = get_deserialized(Book.objects.all())
         self.assertTrue(deserialized_eq(lhs, rhs))
 
     def test_dumpdata_deserialize(self):
-        lhs = get_deserialized(Book.objects.all(), serializer=self.dumpdata)
+        lhs = get_deserialized(Book.objects.all(), serializer=FixtureSerializer)
         rhs = get_deserialized(Book.objects.all())
         self.assertTrue(deserialized_eq(lhs, rhs))
 
@@ -1314,7 +1305,6 @@ class TestManyToManyThroughModel(SerializationTestCase):
     Test one-to-one field relationship on a model with a 'through' relationship.
     """
     def setUp(self):
-        self.dumpdata = FixtureSerializer()
         right = Anchor.objects.create(data='foobar')
         left = M2MIntermediateData.objects.create()
         Intermediate.objects.create(extra='wibble', left=left, right=right)
@@ -1322,11 +1312,11 @@ class TestManyToManyThroughModel(SerializationTestCase):
 
     def test_m2m_through_dumpdata_json(self):
         self.assertEquals(
-            self.dumpdata.serialize('json', M2MIntermediateData.objects.all()),
+            serialize('json', M2MIntermediateData.objects.all(), serializer=FixtureSerializer),
             serializers.serialize('json', M2MIntermediateData.objects.all())
         )
         self.assertEquals(
-            self.dumpdata.serialize('json', Anchor.objects.all()),
+            serialize('json', Anchor.objects.all(), serializer=FixtureSerializer),
             serializers.serialize('json', Anchor.objects.all())
         )
 
@@ -1342,8 +1332,8 @@ class FieldsTest(SerializationTestCase):
         obj = ComplexModel(field1='first', field2='second', field3='third')
 
         # Serialize then deserialize the test database
-        serialized_data = FixtureSerializer().serialize('json', [obj], indent=2, fields=('field1', 'field3'))
-        result = next(FixtureSerializer().deserialize('json', serialized_data))
+        serialized_data = serialize('json', [obj], indent=2, fields=('field1', 'field3'), serializer=FixtureSerializer)
+        result = next(deserialize('json', serialized_data, serializer=FixtureSerializer))
 
         # Check that the deserialized object contains data in only the serialized fields.
         self.assertEqual(result.object.field1, 'first')
@@ -1397,10 +1387,10 @@ class NonIntegerPKTests(SerializationTestCase):
         ac.save()
         mv.save()
 
-        serial_str = FixtureSerializer().serialize('json', [ac])
+        serial_str = serialize('json', [ac], serializer=FixtureSerializer)
         self.assertEqual(serializers.serialize('json', [ac]), serial_str)
 
-        obj_list = list(FixtureSerializer().deserialize('json', serial_str))
+        obj_list = list(deserialize('json', serial_str, serializer=FixtureSerializer))
         ac_obj = obj_list[0].object
         self.assertEqual(ac_obj.name, actor_name)
 
@@ -1413,7 +1403,7 @@ class FileFieldTests(SerializationTestCase):
     def test_serialize_file_field(self):
         FileData().save()
         self.assertEquals(
-            FixtureSerializer().serialize('json', FileData.objects.all()),
+            serialize('json', FileData.objects.all(), serializer=FixtureSerializer),
             serializers.serialize('json', FileData.objects.all())
         )
 
@@ -1478,8 +1468,8 @@ class TestRoundtrips(SerializationTestCase):
 
     def test_serializer_roundtrip(self):
         """Tests that serialized content can be deserialized."""
-        serial_str = FixtureSerializer().serialize('xml', Article.objects.all())
-        models = list(FixtureSerializer().deserialize('xml', serial_str))
+        serial_str = serialize('xml', Article.objects.all(), serializer=FixtureSerializer)
+        models = list(deserialize('xml', serial_str, serializer=FixtureSerializer))
         self.assertEqual(len(models), 2)
 
     def test_altering_serialized_output(self):
@@ -1489,10 +1479,10 @@ class TestRoundtrips(SerializationTestCase):
         """
         old_headline = "Poker has no place on ESPN"
         new_headline = "Poker has no place on television"
-        serial_str = FixtureSerializer().serialize('xml', Article.objects.all())
+        serial_str = serialize('xml', Article.objects.all(), serializer=FixtureSerializer)
 
         serial_str = serial_str.replace(old_headline, new_headline)
-        models = list(FixtureSerializer().deserialize('xml', serial_str))
+        models = list(deserialize('xml', serial_str, serializer=FixtureSerializer))
 
         # Prior to saving, old headline is in place
         self.assertTrue(Article.objects.filter(headline=old_headline))

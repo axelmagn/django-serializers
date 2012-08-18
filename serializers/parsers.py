@@ -1,10 +1,12 @@
 import json
 from xml.dom import pulldom
 from django.core.serializers.base import DeserializationError
+from io import BytesIO
 
 
 class JSONParser(object):
     def parse(self, stream):
+        stream = isinstance(stream, basestring) and BytesIO(stream) or stream
         try:
             return json.load(stream)
         except Exception as e:
@@ -14,6 +16,7 @@ class JSONParser(object):
 
 class DumpDataXMLParser(object):
     def parse(self, stream):
+        stream = isinstance(stream, basestring) and BytesIO(stream) or stream
         event_stream = pulldom.parse(stream)
         for event, node in event_stream:
             if event == "START_ELEMENT" and node.nodeName == "object":

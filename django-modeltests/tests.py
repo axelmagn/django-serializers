@@ -291,11 +291,11 @@ class XmlSerializerTestCase(SerializersTestBase, TestCase):
     </object>
 </django-objects>"""
 
-    @staticmethod
-    def _comparison_value(value):
-        # The XML serializer handles everything as strings, so comparisons
-        # need to be performed on the stringified value
-        return unicode(value)
+    # @staticmethod
+    # def _comparison_value(value):
+    #     # The XML serializer handles everything as strings, so comparisons
+    #     # need to be performed on the stringified value
+    #     return unicode(value)
 
     @staticmethod
     def _validate_output(serial_str):

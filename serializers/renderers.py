@@ -4,6 +4,7 @@ from django.utils.encoding import smart_unicode
 from django.utils.html import urlize
 from django.utils.xmlutils import SimplerXMLGenerator
 from serializers.utils import SafeDumper, DictWriter, DjangoJSONEncoder
+from StringIO import StringIO
 try:
     import yaml
 except ImportError:
@@ -15,38 +16,46 @@ class BaseRenderer(object):
     Defines the base interface that renderers should implement.
     """
 
-    def render(obj, stream, **opts):
-        return str(obj)
+    def render(self, obj, stream=None, **opts):
+        stream = stream or StringIO()
+        stream.write(unicode(obj))
+        return hasattr(stream, 'getvalue') and stream.getvalue() or None
 
 
 class JSONRenderer(BaseRenderer):
     """
     Render a native python object into JSON.
     """
-    def render(self, obj, stream, **opts):
+    def render(self, obj, stream=None, **opts):
+        stream = stream or StringIO()
         indent = opts.pop('indent', None)
         sort_keys = opts.pop('sort_keys', False)
-        return json.dump(obj, stream, cls=DjangoJSONEncoder,
-                         indent=indent, sort_keys=sort_keys)
+        json.dump(obj, stream, cls=DjangoJSONEncoder,
+                  indent=indent, sort_keys=sort_keys)
+        return hasattr(stream, 'getvalue') and stream.getvalue() or None
 
 
 class YAMLRenderer(BaseRenderer):
     """
     Render a native python object into YAML.
     """
-    def render(self, obj, stream, **opts):
+    def render(self, obj, stream=None, **opts):
+        stream = stream or StringIO()
         indent = opts.pop('indent', None)
         default_flow_style = opts.pop('default_flow_style', None)
-        return yaml.dump(obj, stream, Dumper=SafeDumper,
-                         indent=indent, default_flow_style=default_flow_style)
+        yaml.dump(obj, stream, Dumper=SafeDumper,
+                  indent=indent, default_flow_style=default_flow_style)
+        return hasattr(stream, 'getvalue') and stream.getvalue() or None
 
 
 class HTMLRenderer(BaseRenderer):
     """
     A basic html renderer, that renders data into tabular format.
     """
-    def render(self, obj, stream, **opts):
+    def render(self, obj, stream=None, **opts):
+        stream = stream or StringIO()
         self._to_html(stream, obj)
+        return hasattr(stream, 'getvalue') and stream.getvalue() or None
 
     def _to_html(self, stream, data):
         if isinstance(data, dict):
@@ -73,11 +82,13 @@ class XMLRenderer(BaseRenderer):
     """
     Render a native python object into a generic XML format.
     """
-    def render(self, obj, stream, **opts):
+    def render(self, obj, stream=None, **opts):
+        stream = stream or StringIO()
         xml = SimplerXMLGenerator(stream, 'utf-8')
         xml.startDocument()
         self._to_xml(xml, obj)
         xml.endDocument()
+        return hasattr(stream, 'getvalue') and stream.getvalue() or None
 
     def _to_xml(self, xml, data):
         if isinstance(data, dict):
@@ -104,7 +115,8 @@ class DumpDataXMLRenderer(BaseRenderer):
     """
     Render a native python object into XML dumpdata format.
     """
-    def render(self, obj, stream, **opts):
+    def render(self, obj, stream=None, **opts):
+        stream = stream or StringIO()
         xml = SimplerXMLGenerator(stream, 'utf-8')
         xml.startDocument()
         xml.startElement('django-objects', {'version': '1.0'})
@@ -114,6 +126,7 @@ class DumpDataXMLRenderer(BaseRenderer):
             self.model_to_xml(xml, obj)
         xml.endElement('django-objects')
         xml.endDocument()
+        return hasattr(stream, 'getvalue') and stream.getvalue() or None
 
     def model_to_xml(self, xml, data):
         pk = data['pk']
@@ -179,7 +192,9 @@ class DumpDataXMLRenderer(BaseRenderer):
 
 
 class CSVRenderer(BaseRenderer):
-    def render(self, obj, stream, **opts):
+    def render(self, obj, stream=None, **opts):
+        stream = stream or StringIO()
+
         if isinstance(obj, dict) or not hasattr(obj, '__iter__'):
             obj = [obj]
         writer = None
@@ -188,6 +203,8 @@ class CSVRenderer(BaseRenderer):
                 writer = DictWriter(stream, item.keys())
                 writer.writeheader()
             writer.writerow(item)
+
+        return hasattr(stream, 'getvalue') and stream.getvalue() or None
 
 if not yaml:
     YAMLRenderer = None

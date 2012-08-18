@@ -17,7 +17,6 @@ from serializers.parsers import (
 from serializers.fields import *
 from serializers.utils import SortedDictWithMetadata, is_simple_callable
 from StringIO import StringIO
-from io import BytesIO
 
 
 class RecursionOccured(BaseException):
@@ -249,12 +248,12 @@ class BaseSerializer(Field):
             attrs = self.restore_fields(data)
             return self.restore_object(attrs, instance=getattr(self, 'instance', None))
 
-    def render(self, data, stream, format, **options):
+    def render(self, data, format, **options):
         """
         Render primatives -> bytestream for serialization.
         """
         renderer = self.opts.renderer_classes[format]()
-        return renderer.render(data, stream, **options)
+        return renderer.render(data, **options)
 
     def parse(self, stream, format, **options):
         """
@@ -274,17 +273,12 @@ class BaseSerializer(Field):
 
         data = self.to_native(obj)
         if format != 'python':
-            stream = options.pop('stream', StringIO())
-            self.render(data, stream, format, **options)
-            if hasattr(stream, 'getvalue'):
-                self.value = stream.getvalue()
-            else:
-                self.value = None
+            self.value = self.render(data, format, **options)
         else:
             self.value = data
         return self.value
 
-    def deserialize(self, format, stream_or_string, instance=None, context=None, **options):
+    def deserialize(self, format, stream, instance=None, context=None, **options):
         """
         Perform deserialization of bytestream into objects.
         First parses the bytestream into primative types,
@@ -295,13 +289,9 @@ class BaseSerializer(Field):
         self.instance = instance
 
         if format != 'python':
-            if isinstance(stream_or_string, basestring):
-                stream = BytesIO(stream_or_string)
-            else:
-                stream = stream_or_string
             data = self.parse(stream, format, **options)
         else:
-            data = stream_or_string
+            data = stream
         return self.from_native(data)
 
 
