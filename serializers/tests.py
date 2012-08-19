@@ -69,6 +69,11 @@ class BasicTests(TestCase):
 
 class ValidationTests(TestCase):
     def setUp(self):
+        self.comment = Comment(
+            'tomchristie',
+            'Happy new year!',
+            datetime.datetime(2012, 1, 1)
+        )
         self.data = {
             'username': 'x' * 100,
             'content': 'Happy new year!',
@@ -80,11 +85,15 @@ class ValidationTests(TestCase):
         self.assertEquals(serializer.is_valid(), False)
         self.assertEquals(serializer.errors, {'username': [u'Ensure this value has at most 20 characters (it has 100).']})
 
+    def test_deserialization_for_update(self):
+        serializer = CommentSerializer(self.data, instance=self.comment)
+        self.assertEquals(serializer.is_valid(), False)
+        self.assertEquals(serializer.errors, {'username': [u'Ensure this value has at most 20 characters (it has 100).']})
 
 
 ###########################################################################
 #
-#  
+#
 #
 
 

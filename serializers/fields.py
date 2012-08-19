@@ -186,10 +186,6 @@ class PrimaryKeyRelatedField(RelatedField):
     #     def to_native(self, obj):
     #         return obj.pk
 
-    error_messages = {
-        'invalid': _(u"'%s' value must be an integer."),
-    }
-
     def to_native(self, pk):
         """
         Simply returns the object's pk.  You can subclass this method to
