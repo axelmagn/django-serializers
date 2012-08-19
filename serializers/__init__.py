@@ -64,4 +64,7 @@ def deserialize(format, stream, serializer=FixtureSerializer, **options):
     else:
         data = stream
 
-    return serializer(data).object
+    s = serializer(data)
+    if s.is_valid():
+        return s.object
+    raise Exception()

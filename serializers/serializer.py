@@ -84,6 +84,9 @@ class BaseSerializer(Field):
         self.init_data = data
         self.instance = instance
 
+        self._data = None
+        self._errors = None
+
     #####
     # Methods to determine which fields to use when (de)serializing objects.
 
@@ -192,7 +195,11 @@ class BaseSerializer(Field):
         fields = self.get_fields(serialize=False, data=data, nested=self.opts.nested)
         reverted_data = {}
         for field_name, field in fields.items():
-            field.field_from_native(data, field_name, reverted_data)
+            try:
+                field.field_from_native(data, field_name, reverted_data)
+            except ValidationError as err:
+                self._errors[field_name] = list(err.messages)
+
         return reverted_data
 
     def restore_object(self, attrs, instance=None):
@@ -230,19 +237,31 @@ class BaseSerializer(Field):
         elif hasattr(data, '__iter__') and not isinstance(data, dict):
             return (self.from_native(item) for item in data)
         else:
+            self._errors = {}
             attrs = self.restore_fields(data)
-            return self.restore_object(attrs, instance=getattr(self, 'instance', None))
+            if not self._errors:
+                return self.restore_object(attrs, instance=getattr(self, 'instance', None))
+
+    @property
+    def errors(self):
+        """
+        Run deserialization and return error data,
+        setting self.object if no errors occured.
+        """
+        if self._errors is None:
+            obj = self.from_native(self.init_data)
+            if not self._errors:
+                self.object = obj
+        return self._errors
 
     def is_valid(self):
-        return True
+        return not self.errors
 
     @property
     def data(self):
-        return self.to_native(self.instance)
-
-    @property
-    def object(self):
-        return self.from_native(self.init_data)
+        if self._data is None:
+            self._data = self.to_native(self.instance)
+        return self._data
 
 
 class Serializer(BaseSerializer):

@@ -67,20 +67,18 @@ class BasicTests(TestCase):
         self.assertTrue(serializer.object is expected)
 
 
-# class ValidationTests(TestCase):
-#     def setUp(self):
-#         self.data = {
-#             'username': 'x' * 100,
-#             'content': 'Happy new year!',
-#             'created': datetime(2012, 1, 1)
-#         }
+class ValidationTests(TestCase):
+    def setUp(self):
+        self.data = {
+            'username': 'x' * 100,
+            'content': 'Happy new year!',
+            'created': datetime.datetime(2012, 1, 1)
+        }
 
-
-#     def test_deserialization_for_create(self):
-#         serializer = CommentSerializer(self.data)
-#         expected = self.comment
-#         self.assertEquals(serializer.is_valid(), False)
-#         self.assertFalse(serializer.object is expected)
+    def test_deserialization_for_create(self):
+        serializer = CommentSerializer(self.data)
+        self.assertEquals(serializer.is_valid(), False)
+        self.assertEquals(serializer.errors, {'username': [u'Ensure this value has at most 20 characters (it has 100).']})
 
 
 

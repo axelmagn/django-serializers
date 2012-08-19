@@ -13,10 +13,15 @@ import warnings
 
 
 class Field(object):
-    default_validators = []
     creation_counter = 0
+    default_validators = []
+    default_error_messages = {
+        'required': _('This field is required.'),
+        'invalid': _('Invalid value.'),
+    }
 
-    def __init__(self, source=None, readonly=False, validators=[]):
+    def __init__(self, source=None, readonly=False, required=None,
+                 validators=[], error_messages=None):
         self.parent = None
 
         self.creation_counter = Field.creation_counter
@@ -24,6 +29,14 @@ class Field(object):
 
         self.source = source
         self.readonly = readonly
+        self.required = not(readonly)
+
+        messages = {}
+        for c in reversed(self.__class__.__mro__):
+            messages.update(getattr(c, 'default_error_messages', {}))
+        messages.update(error_messages or {})
+        self.error_messages = messages
+
         self.validators = self.default_validators + validators
 
     def initialize(self, parent, model_field=None):
@@ -39,6 +52,29 @@ class Field(object):
         if model_field:
             self.model_field = model_field
 
+    def validate(self, value):
+        pass
+        # if value in validators.EMPTY_VALUES and self.required:
+        #     raise ValidationError(self.error_messages['required'])
+
+    def run_validators(self, value):
+        if value in validators.EMPTY_VALUES:
+            return
+        errors = []
+        for v in self.validators:
+            try:
+                v(value)
+            except ValidationError as e:
+                if hasattr(e, 'code') and e.code in self.error_messages:
+                    message = self.error_messages[e.code]
+                    if e.params:
+                        message = message % e.params
+                    errors.append(message)
+                else:
+                    errors.extend(e.messages)
+        if errors:
+            raise ValidationError(errors)
+
     def field_from_native(self, data, field_name, into):
         """
         Given a dictionary and a field name, updates the dictionary `into`,
@@ -52,10 +88,14 @@ class Field(object):
         except KeyError:
             return  # TODO Consider validation behaviour, 'required' opt etc...
 
+        value = self.from_native(native)
         if self.source == '*':
-            into.update(self.from_native(native))
+            if value:
+                into.update(value)
         else:
-            into[self.source or field_name] = self.from_native(native)
+            self.validate(value)
+            self.run_validators(value)
+            into[self.source or field_name] = value
 
     def from_native(self, value):
         """
