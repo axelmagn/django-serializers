@@ -13,14 +13,18 @@ import warnings
 
 
 class Field(object):
+    default_validators = []
     creation_counter = 0
 
-    def __init__(self, source=None, readonly=False):
-        self.source = source
-        self.readonly = readonly
+    def __init__(self, source=None, readonly=False, validators=[]):
         self.parent = None
+
         self.creation_counter = Field.creation_counter
         Field.creation_counter += 1
+
+        self.source = source
+        self.readonly = readonly
+        self.validators = self.default_validators + validators
 
     def initialize(self, parent, model_field=None):
         """
@@ -217,6 +221,14 @@ class BooleanField(Field):
 
 
 class CharField(Field):
+    def __init__(self, max_length=None, min_length=None, *args, **kwargs):
+        self.max_length, self.min_length = max_length, min_length
+        super(CharField, self).__init__(*args, **kwargs)
+        if min_length is not None:
+            self.validators.append(validators.MinLengthValidator(min_length))
+        if max_length is not None:
+            self.validators.append(validators.MaxLengthValidator(max_length))
+
     def from_native(self, value):
         if isinstance(value, basestring) or value is None:
             return value

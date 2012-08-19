@@ -71,9 +71,8 @@ class BaseSerializer(Field):
     _options_class = SerializerOptions
     _dict_class = SortedDictWithMetadata  # Set to unsorted dict for backwards compatability with unsorted implementations.
 
-    def __init__(self, data=None, instance=None, context=None,
-                 source=None, readonly=False):
-        super(BaseSerializer, self).__init__(source, readonly)
+    def __init__(self, data=None, instance=None, context=None, **kwargs):
+        super(BaseSerializer, self).__init__(**kwargs)
         self.fields = copy.deepcopy(self.base_fields)
         self.opts = self._options_class(self.Meta)
         self.parent = None
@@ -233,6 +232,9 @@ class BaseSerializer(Field):
         else:
             attrs = self.restore_fields(data)
             return self.restore_object(attrs, instance=getattr(self, 'instance', None))
+
+    def is_valid(self):
+        return True
 
     @property
     def data(self):

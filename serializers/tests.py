@@ -7,11 +7,92 @@ from django.utils.datastructures import SortedDict
 from serializers import Serializer, ModelSerializer, FixtureSerializer
 from serializers.fields import Field, NaturalKeyRelatedField, PrimaryKeyRelatedField
 from serializers import serialize, deserialize
+from serializers import fields
+
+
+class Comment(object):
+    def __init__(self, username, content, created):
+        self.username = username
+        self.content = content
+        self.created = created or datetime.datetime.now()
+
+    def __eq__(self, other):
+        return all([getattr(self, attr) == getattr(other, attr)
+                    for attr in ('username', 'content', 'created')])
+
+
+class CommentSerializer(Serializer):
+    username = fields.CharField(max_length=20)
+    content = fields.CharField(max_length=1000)
+    created = fields.DateTimeField()
+
+    def restore_object(self, data, instance=None):
+        if instance is None:
+            return Comment(**data)
+        for key, val in data.items():
+            setattr(instance, key, val)
+        return instance
+
+
+class BasicTests(TestCase):
+    def setUp(self):
+        self.comment = Comment(
+            'tomchristie',
+            'Happy new year!',
+            datetime.datetime(2012, 1, 1)
+        )
+        self.data = {
+            'username': 'tomchristie',
+            'content': 'Happy new year!',
+            'created': datetime.datetime(2012, 1, 1)
+        }
+
+    def test_serialization(self):
+        serializer = CommentSerializer(instance=self.comment)
+        expected = self.data
+        self.assertEquals(serializer.data, expected)
+
+    def test_deserialization_for_create(self):
+        serializer = CommentSerializer(self.data)
+        expected = self.comment
+        self.assertEquals(serializer.is_valid(), True)
+        self.assertEquals(serializer.object, expected)
+        self.assertFalse(serializer.object is expected)
+
+    def test_deserialization_for_update(self):
+        serializer = CommentSerializer(self.data, instance=self.comment)
+        expected = self.comment
+        self.assertEquals(serializer.is_valid(), True)
+        self.assertEquals(serializer.object, expected)
+        self.assertTrue(serializer.object is expected)
+
+
+# class ValidationTests(TestCase):
+#     def setUp(self):
+#         self.data = {
+#             'username': 'x' * 100,
+#             'content': 'Happy new year!',
+#             'created': datetime(2012, 1, 1)
+#         }
+
+
+#     def test_deserialization_for_create(self):
+#         serializer = CommentSerializer(self.data)
+#         expected = self.comment
+#         self.assertEquals(serializer.is_valid(), False)
+#         self.assertFalse(serializer.object is expected)
+
+
+
+###########################################################################
+#
+#  
+#
+
 
 
 # ObjectSerializer has been removed from serializers
 # leaving it in the tests for the moment for more coverage.
-
 
 class ObjectSerializer(Serializer):
     def default_fields(self, serialize, obj=None, data=None, nested=False):
