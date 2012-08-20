@@ -219,8 +219,6 @@ class BaseSerializer(Field):
         """
         if _is_protected_type(obj):
             return obj
-        elif is_simple_callable(obj):
-            return self.to_native(obj())
         elif isinstance(obj, dict):
             return dict([(key, self.to_native(val))
                          for (key, val) in obj.items()])
@@ -232,15 +230,13 @@ class BaseSerializer(Field):
         """
         Deserialize primatives -> objects.
         """
-        if _is_protected_type(data):
-            return data
-        elif hasattr(data, '__iter__') and not isinstance(data, dict):
+        if hasattr(data, '__iter__') and not isinstance(data, dict):
+            # TODO: error data when deserializing lists
             return (self.from_native(item) for item in data)
-        else:
-            self._errors = {}
-            attrs = self.restore_fields(data)
-            if not self._errors:
-                return self.restore_object(attrs, instance=getattr(self, 'instance', None))
+        self._errors = {}
+        attrs = self.restore_fields(data)
+        if not self._errors:
+            return self.restore_object(attrs, instance=getattr(self, 'instance', None))
 
     @property
     def errors(self):
