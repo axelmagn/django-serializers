@@ -5,7 +5,7 @@ import copy
 import datetime
 import types
 from serializers.fields import *
-from serializers.utils import SortedDictWithMetadata, is_simple_callable
+from serializers.utils import SortedDictWithMetadata
 
 
 class RecursionOccured(BaseException):
@@ -217,9 +217,7 @@ class BaseSerializer(Field):
         """
         Serialize objects -> primatives.
         """
-        if _is_protected_type(obj):
-            return obj
-        elif isinstance(obj, dict):
+        if isinstance(obj, dict):
             return dict([(key, self.to_native(val))
                          for (key, val) in obj.items()])
         elif hasattr(obj, '__iter__'):

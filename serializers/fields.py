@@ -19,6 +19,7 @@ class Field(object):
         'required': _('This field is required.'),
         'invalid': _('Invalid value.'),
     }
+    empty = ''
 
     def __init__(self, source=None, readonly=False, required=None,
                  validators=[], error_messages=None):
@@ -113,6 +114,9 @@ class Field(object):
         Given and object and a field name, returns the value that should be
         serialized for that field.
         """
+        if obj is None:
+            return self.empty
+
         if self.source == '*':
             return self.to_native(obj)
 
@@ -278,6 +282,7 @@ class DateField(Field):
         'invalid_date': _(u"'%s' value has the correct format (YYYY-MM-DD) "
                           u"but it is an invalid date."),
     }
+    empty = None
 
     def from_native(self, value):
         if value is None:
@@ -314,6 +319,7 @@ class DateTimeField(Field):
                               u"(YYYY-MM-DD HH:MM[:ss[.uuuuuu]][TZ]) "
                               u"but it is an invalid date/time."),
     }
+    empty = None
 
     def from_native(self, value):
         if value is None:

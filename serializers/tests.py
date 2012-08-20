@@ -8,6 +8,7 @@ from serializers import Serializer, ModelSerializer, FixtureSerializer
 from serializers.fields import Field, NaturalKeyRelatedField, PrimaryKeyRelatedField
 from serializers import serialize, deserialize
 from serializers import fields
+from serializers.serializer import _is_protected_type
 
 
 class Comment(object):
@@ -46,6 +47,15 @@ class BasicTests(TestCase):
             'content': 'Happy new year!',
             'created': datetime.datetime(2012, 1, 1)
         }
+
+    def test_empty(self):
+        serializer = CommentSerializer()
+        expected = {
+            'username': '',
+            'content': '',
+            'created': None
+        }
+        self.assertEquals(serializer.data, expected)
 
     def test_serialization(self):
         serializer = CommentSerializer(instance=self.comment)
@@ -97,7 +107,6 @@ class ValidationTests(TestCase):
 #
 
 
-
 # ObjectSerializer has been removed from serializers
 # leaving it in the tests for the moment for more coverage.
 
@@ -123,6 +132,10 @@ class ObjectSerializer(Serializer):
             ret[attr] = field
         return ret
 
+    def to_native(self, obj):
+        if _is_protected_type(obj):
+            return obj
+        return super(ObjectSerializer, self).to_native(obj)
 
 class NestedObjectSerializer(ObjectSerializer):
     class Meta:
