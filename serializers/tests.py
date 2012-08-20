@@ -101,6 +101,29 @@ class ValidationTests(TestCase):
         self.assertEquals(serializer.errors, {'username': [u'Ensure this value has at most 20 characters (it has 100).']})
 
 
+class MetadataTests(TestCase):
+    # def setUp(self):
+    #     self.comment = Comment(
+    #         'tomchristie',
+    #         'Happy new year!',
+    #         datetime.datetime(2012, 1, 1)
+    #     )
+    #     self.data = {
+    #         'username': 'tomchristie',
+    #         'content': 'Happy new year!',
+    #         'created': datetime.datetime(2012, 1, 1)
+    #     }
+
+    def test_empty(self):
+        serializer = CommentSerializer()
+        expected = {
+            'username': fields.CharField,
+            'content': fields.CharField,
+            'created': fields.DateTimeField
+        }
+        for field_name, field in expected.items():
+            self.assertTrue(isinstance(serializer.data.fields[field_name], field))
+
 ###########################################################################
 #
 #
