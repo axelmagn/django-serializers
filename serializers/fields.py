@@ -244,7 +244,7 @@ class NaturalKeyRelatedField(RelatedField):
 
 
 class BooleanField(Field):
-    error_messages = {
+    default_error_messages = {
         'invalid': _(u"'%s' value must be either True or False."),
     }
 
@@ -276,7 +276,7 @@ class CharField(Field):
 
 
 class DateField(Field):
-    error_messages = {
+    default_error_messages = {
         'invalid': _(u"'%s' value has an invalid date format. It must be "
                      u"in YYYY-MM-DD format."),
         'invalid_date': _(u"'%s' value has the correct format (YYYY-MM-DD) "
@@ -310,7 +310,7 @@ class DateField(Field):
 
 
 class DateTimeField(Field):
-    error_messages = {
+    default_error_messages = {
         'invalid': _(u"'%s' value has an invalid format. It must be in "
                      u"YYYY-MM-DD HH:MM[:ss[.uuuuuu]][TZ] format."),
         'invalid_date': _(u"'%s' value has the correct format "
@@ -361,22 +361,33 @@ class DateTimeField(Field):
 
 
 class IntegerField(Field):
-    error_messages = {
-        'invalid': _(u"'%s' value must be an integer."),
+    default_error_messages = {
+        'invalid': _('Enter a whole number.'),
+        'max_value': _('Ensure this value is less than or equal to %(limit_value)s.'),
+        'min_value': _('Ensure this value is greater than or equal to %(limit_value)s.'),
     }
+
+    def __init__(self, max_value=None, min_value=None, *args, **kwargs):
+        self.max_value, self.min_value = max_value, min_value
+        super(IntegerField, self).__init__(*args, **kwargs)
+
+        if max_value is not None:
+            self.validators.append(validators.MaxValueValidator(max_value))
+        if min_value is not None:
+            self.validators.append(validators.MinValueValidator(min_value))
 
     def from_native(self, value):
         if value in validators.EMPTY_VALUES:
             return None
         try:
-            value = int(value)
+            value = int(str(value))
         except (ValueError, TypeError):
             raise ValidationError(self.error_messages['invalid'])
         return value
 
 
 class FloatField(Field):
-    error_messages = {
+    default_error_messages = {
         'invalid': _("'%s' value must be a float."),
     }
 
