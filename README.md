@@ -4,6 +4,15 @@
 
 **Author:** Tom Christie, [Follow me on Twitter][1].
 
+---
+
+**Note**: This project has now been superseeded by the serializer implementation in `django-rest-framework` (which originated from this project).
+You should instead install and use [django-rest-framework].
+
+Note that the serializers in REST framework are decoupled from other aspects of the codebase, so you won't have any problems using them even if you're not actually building a Web API.
+
+---
+
 ## Overview
 
 `django-serializers` gives you a declarative serialization and deserialization API, that mirrors Django's `Form`/`ModelForm` API.  It provides flexible serialization and deserialization of objects, models and querysets, and is intended to be a potential replacement for Django's current  fixture serialization.
@@ -421,3 +430,4 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 [1]: http://twitter.com/_tomchristie
 [2]: http://github.com/tomchristie/django-auto-api
+[django-rest-framework]: https://github.com/tomchristie/django-rest-framework/
