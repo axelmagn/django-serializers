@@ -63,6 +63,7 @@ You can also run `django-serializers` against the existing Django serialization 
 
 Let's start by creating a simple object we can use for example purposes:
 
+```python
     class Comment(object):
         def __init__(self, title, content, created=None):
             self.title = title
@@ -70,17 +71,21 @@ Let's start by creating a simple object we can use for example purposes:
             self.created = created or datetime.datetime.now()
     
     comment = Comment(title='blah', content='foo bar baz')
+```
 
 We'll declare a serializer that we can use to serialize and deserialize `Comment` objects.
 Declaring a serializer looks very similar to declaring a form:
 
+```python
     class CommentSerializer(Serializer):
         title = CharField()
         content = CharField()
         created = DateTimeField(label='created time')
+```
 
 We can now use `CommentSerializer` to serialize a comment, or list of comments, into `json`, `yaml`, `xml` or `csv` formats:
 
+```python
     >>> serializer = CommentSerializer()
     >>> stream = serializer.serialize('json', comment, indent=4)
     >>> print stream
@@ -89,20 +94,24 @@ We can now use `CommentSerializer` to serialize a comment, or list of comments, 
         "content": "foo bar baz", 
         "created time": "2012-07-12T09:01:14.302"
     }
+```
 
 ## Deserializing objects
 
 We can deserialize encoded data, using the same serializer class: 
 
+```python
     >>> serializer.deserialize('json', stream)
     {'content': u'foo bar baz', 'created': datetime.datetime(2012, 7, 12, 9, 1, 14, 302000), 'title': u'blah'}
-    
+```
+
 Note that when we deserialized the stream, we ended up with a dictionary containing the correct fields, but we haven't got a fully deserialized `Comment` instance.  
 
 That's because the `CommentSerializer` doesn't yet have any way of determining what class it should deserialize objects into, or how those objects should be instantiated.
 
 We can explicitly control how the deserialized objects are instantiated by defining the `revert_object` method:
 
+```python
     class CommentSerializer(Serializer):
         title = CharField()
         content = CharField()
@@ -110,6 +119,7 @@ We can explicitly control how the deserialized objects are instantiated by defin
        
         def revert_object(self, attrs, instance=None):
             return Comment(**attrs)
+```
 
 Declaring the `revert_object` method is optional, and may not be required if you don't need to support deserialization.
 
@@ -127,6 +137,7 @@ where some of the attributes of an object might not be simple datatypes such as 
 
 The `Serializer` class is itself a type of `Field`, and can be used to represent relationships where one object type is nested inside another.
 
+```python
     class UserSerializer(Serializer):
         email = EmailField()
         username = CharField()
@@ -143,6 +154,7 @@ The `Serializer` class is itself a type of `Field`, and can be used to represent
         
         def revert_object(self, attrs):
             return Comment(**attrs)
+```
 
 ## Creating custom fields
 
@@ -152,6 +164,7 @@ The `.to_native()` method is called to convert the initial datatype into a prima
 
 Let's look at an example of serializing a class that represents an RGB color value:
 
+```python
     class Color(object):
         """
         A color represented in the RGB colorspace.
@@ -174,12 +187,13 @@ Let's look at an example of serializing a class that represents an RGB color val
             data = data.strip('rgb(').rstrip(')')
             red, green, blue = [int(col) for col in data.split(',')]
             return Color(red, green, blue)
-            
+```
 
 By default field values are treated as mapping to an attribute on the object.  If you need to customize how the field value is accessed and set you need to override `.field_to_native()` and/or `.field_from_native()`.
 
 As an example, let's create a field that can be used represent the class name of the object being serialized:
 
+```python
     class ClassNameField(Field):
         def field_to_native(self, obj, field_name):
             """
@@ -192,6 +206,7 @@ As an example, let's create a field that can be used represent the class name of
             We don't want to set anything when we revert this field.
             """
             pass
+```
 
 ---
 
@@ -200,9 +215,11 @@ As an example, let's create a field that can be used represent the class name of
 Often you'll want serializer classes that map closely to model definitions.
 The `ModelSerializer` class lets you automatically create a Serializer class with fields that corrospond to the Model fields.
 
+```python
     class AccountSerializer(ModelSerializer):
         class Meta:
             model = Account
+```
 
 **[TODO: Explain model field to serializer field mapping in more detail]**
 
@@ -210,12 +227,14 @@ The `ModelSerializer` class lets you automatically create a Serializer class wit
 
 You can add extra fields to a `ModelSerializer` or override the default fields by declaring fields on the class, just as you would for a `Serializer` class.
 
+```python
     class AccountSerializer(ModelSerializer):
         url = CharField(source='get_absolute_url', readonly=True)
         group = NaturalKeyField()
 
         class Meta:
             model = Account
+```
 
 Extra fields can corrospond to any property or callable on the model.
 
@@ -239,10 +258,12 @@ If you only want a subset of the default fields to be used in a model serializer
 
 For example:
 
+```python
     class AccountSerializer(ModelSerializer):
         class Meta:
             model = Account
             exclude = ('id',)
+```
 
 The `fields` and `exclude` options may also be set by passing them to the `serialize()` method.
 
@@ -252,11 +273,14 @@ The `fields` and `exclude` options may also be set by passing them to the `seria
 
 The default `ModelSerializer` uses primary keys for relationships, but you can also easily generate nested representations using the `nested` option:
 
+```python
     class AccountSerializer(ModelSerializer):
         class Meta:
             model = Account
             exclude = ('id',)
             nested = True
+```
+
 
 The `nested` option may be set to either `True`, `False`, or an integer value.  If given an integer value it indicates the depth of relationships that should be traversed before reverting to a flat representation.
 
@@ -268,6 +292,7 @@ The `nested` option may also be set by passing it to the `serialize()` method.
 
 ## Customising the default fields used by a ModelSerializer
 
+```python
     class AccountSerializer(ModelSerializer):
         class Meta:
             model = Account
@@ -280,6 +305,7 @@ The `nested` option may also be set by passing it to the `serialize()` method.
 
         def get_field(self, model_field):
             return Field()
+```
 
 ---
 
