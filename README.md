@@ -6,7 +6,7 @@
 
 ---
 
-**Note**: This project has now been superseeded by the serializer implementation in `django-rest-framework` (which originated from this project).
+**Note**: This project has now been superseded by the serializer implementation in `django-rest-framework` (which originated from this project).
 You should instead install and use [django-rest-framework].
 
 Note that the serializers in REST framework are decoupled from other aspects of the codebase, so you won't have any problems using them even if you're not actually building a Web API.
